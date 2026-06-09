@@ -10,17 +10,17 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard',               label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/dashboard/orders',         label: 'Commandes',        icon: ShoppingCart },
-  { href: '/dashboard/conversations',  label: 'Conversations',    icon: MessageSquare },
-  { href: '/dashboard/products',       label: 'Produits',         icon: Package,   adminOnly: true },
-  { href: '/dashboard/agents',         label: 'Agents WhatsApp',  icon: Bot,        adminOnly: true },
+  { href: '/dashboard',              label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/dashboard/orders',        label: 'Commandes',       icon: ShoppingCart },
+  { href: '/dashboard/conversations', label: 'Conversations',   icon: MessageSquare },
+  { href: '/dashboard/products',      label: 'Produits',        icon: Package,  adminOnly: true },
+  { href: '/dashboard/agents',        label: 'Agents WhatsApp', icon: Bot,      adminOnly: true },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const pathname = usePathname();
-  const [user, setUser]           = useState<any>(null);
+  const [user, setUser]               = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Sidebar ── */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 flex flex-col
-        bg-[#0B1739] text-white
+        bg-neo-darkest text-white
         transform transition-transform duration-200 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:relative lg:translate-x-0
@@ -54,10 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div className="flex items-center justify-between h-[70px] px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm">D</div>
+            <div className="w-8 h-8 rounded-lg bg-neo flex items-center justify-center text-white font-bold text-sm">D</div>
             <div>
               <p className="text-[15px] font-bold leading-tight">Daymond</p>
-              <p className="text-[10px] text-blue-300 uppercase tracking-widest">Commercial IA</p>
+              <p className="text-[10px] text-neo-light/70 uppercase tracking-widest">Commercial IA</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-white/50 hover:text-white">
@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className={`
                   group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all
                   ${active
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                    ? 'bg-neo text-white shadow-lg'
                     : 'text-white/60 hover:bg-white/8 hover:text-white'}
                 `}
               >
@@ -87,7 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Icon size={17} className={active ? 'text-white' : 'text-white/50 group-hover:text-white'} />
                   {item.label}
                 </div>
-                {active && <ChevronRight size={14} className="text-blue-200" />}
+                {active && <ChevronRight size={14} className="text-white/70" />}
               </Link>
             );
           })}
@@ -96,12 +96,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* User */}
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 px-1 mb-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-sm font-bold uppercase">
+            <div className="w-9 h-9 rounded-full bg-neo flex items-center justify-center text-white text-sm font-bold uppercase">
               {user?.name?.[0] ?? 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{user?.name}</p>
-              <p className="text-xs text-white/40 capitalize">{user?.role === 'admin' ? 'Administrateur' : 'Coordinateur'}</p>
+              <p className="text-xs text-white/40 capitalize">
+                {user?.role === 'admin' ? 'Administrateur' : 'Coordinateur'}
+              </p>
             </div>
           </div>
           <button
@@ -134,11 +136,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-4 py-1.5">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs text-gray-600 font-medium">Système actif</span>
+            <div className="hidden sm:flex items-center gap-2 bg-neo-bg border border-neo-border rounded-full px-4 py-1.5">
+              <div className="w-2 h-2 rounded-full bg-neo animate-pulse" />
+              <span className="text-xs text-neo-dark font-medium">Système actif</span>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold">
+            <div className="w-9 h-9 rounded-full bg-neo flex items-center justify-center text-white text-sm font-bold">
               {user?.name?.[0] ?? 'U'}
             </div>
           </div>

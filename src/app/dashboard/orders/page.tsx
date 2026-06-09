@@ -7,12 +7,12 @@ import { fr } from 'date-fns/locale';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 
 const STATUS: Record<string, { label: string; bg: string; text: string }> = {
-  pending:    { label: 'En attente',    bg: 'bg-orange-100',  text: 'text-orange-700' },
-  confirmed:  { label: 'Confirmée',    bg: 'bg-blue-100',    text: 'text-blue-700'   },
-  processing: { label: 'En traitement',bg: 'bg-yellow-100',  text: 'text-yellow-700' },
-  shipped:    { label: 'Expédiée',     bg: 'bg-purple-100',  text: 'text-purple-700' },
-  delivered:  { label: 'Livrée',       bg: 'bg-neo-green-bg', text: 'text-neo-green-dark'},
-  cancelled:  { label: 'Annulée',      bg: 'bg-red-100',     text: 'text-red-700'    },
+  pending:    { label: 'En attente',    bg: 'bg-orange-100',  text: 'text-orange-700'    },
+  confirmed:  { label: 'Confirmée',    bg: 'bg-neo-bg',      text: 'text-neo-dark'      },
+  processing: { label: 'En traitement',bg: 'bg-yellow-100',  text: 'text-yellow-700'    },
+  shipped:    { label: 'Expédiée',     bg: 'bg-purple-100',  text: 'text-purple-700'    },
+  delivered:  { label: 'Livrée',       bg: 'bg-neo-bg',      text: 'text-neo-darker'    },
+  cancelled:  { label: 'Annulée',      bg: 'bg-red-100',     text: 'text-red-700'       },
 };
 
 function Badge({ status }: { status: string }) {
@@ -27,11 +27,11 @@ function Badge({ status }: { status: string }) {
 const fmt = (n: number) => new Intl.NumberFormat('fr-CI').format(n);
 
 export default function OrdersPage() {
-  const [orders, setOrders]           = useState<any[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [search, setSearch]           = useState('');
+  const [orders,       setOrders]       = useState<any[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [selected, setSelected]       = useState<any>(null);
+  const [selected,     setSelected]     = useState<any>(null);
 
   async function load() {
     setLoading(true);
@@ -68,7 +68,7 @@ export default function OrdersPage() {
               placeholder="Rechercher..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-neo bg-white"
             />
           </div>
           <div className="relative">
@@ -76,7 +76,7 @@ export default function OrdersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none"
+              className="border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-white appearance-none"
             >
               <option value="">Tous les statuts</option>
               {Object.entries(STATUS).map(([k, v]) => (
@@ -91,7 +91,7 @@ export default function OrdersPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-neo border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -105,8 +105,8 @@ export default function OrdersPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-5 py-4 font-mono text-xs font-semibold text-blue-600">{order.reference}</td>
+                  <tr key={order.id} className="hover:bg-neo-bg/40 transition-colors">
+                    <td className="px-5 py-4 font-mono text-xs font-semibold text-neo">{order.reference}</td>
                     <td className="px-5 py-4">
                       <p className="font-medium text-gray-900">{order.customer_name}</p>
                       <p className="text-gray-400 text-xs">{order.customer_phone}</p>
@@ -120,7 +120,7 @@ export default function OrdersPage() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => setSelected(order)}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                        className="text-xs font-medium text-neo hover:text-neo-dark bg-neo-bg hover:bg-neo-border px-3 py-1.5 rounded-lg transition"
                       >
                         Détails
                       </button>
@@ -129,9 +129,7 @@ export default function OrdersPage() {
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-gray-300 text-sm">
-                      Aucune commande trouvée
-                    </td>
+                    <td colSpan={7} className="text-center py-16 text-gray-300 text-sm">Aucune commande</td>
                   </tr>
                 )}
               </tbody>
@@ -155,7 +153,7 @@ export default function OrdersPage() {
             </div>
 
             <div className="px-6 py-5">
-              <dl className="grid grid-cols-2 gap-4 text-sm">
+              <dl className="grid grid-cols-2 gap-3 text-sm">
                 {[
                   ['Client',   selected.customer_name],
                   ['Téléphone',selected.customer_phone],
@@ -182,7 +180,7 @@ export default function OrdersPage() {
                       <button
                         key={k}
                         onClick={() => updateStatus(selected.id, k)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:opacity-80 ${v.bg} ${v.text}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-80 ${v.bg} ${v.text}`}
                       >
                         {v.label}
                       </button>

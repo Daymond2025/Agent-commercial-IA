@@ -7,9 +7,9 @@ import { fr } from 'date-fns/locale';
 import { X, MessageSquare } from 'lucide-react';
 
 const STATUS: Record<string, { label: string; bg: string; text: string }> = {
-  active:               { label: 'Active',          bg: 'bg-blue-100',    text: 'text-blue-700'   },
+  active:               { label: 'Active',          bg: 'bg-neo-bg',      text: 'text-neo-dark'   },
   pending_confirmation: { label: 'En confirmation', bg: 'bg-yellow-100',  text: 'text-yellow-700' },
-  confirmed:            { label: 'Confirmée',       bg: 'bg-neo-green-bg', text: 'text-neo-green-dark'},
+  confirmed:            { label: 'Confirmée',       bg: 'bg-neo-bg',      text: 'text-neo-darker' },
   abandoned:            { label: 'Abandonnée',      bg: 'bg-red-100',     text: 'text-red-700'    },
   completed:            { label: 'Terminée',        bg: 'bg-gray-100',    text: 'text-gray-600'   },
 };
@@ -34,9 +34,9 @@ function Badge({ status }: { status: string }) {
 
 export default function ConversationsPage() {
   const [conversations, setConversations] = useState<any[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [selected, setSelected]           = useState<any>(null);
-  const [statusFilter, setStatusFilter]   = useState('');
+  const [loading,       setLoading]       = useState(true);
+  const [selected,      setSelected]      = useState<any>(null);
+  const [statusFilter,  setStatusFilter]  = useState('');
 
   useEffect(() => {
     const params: any = {};
@@ -64,7 +64,7 @@ export default function ConversationsPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-white"
         >
           <option value="">Tous les statuts</option>
           {Object.entries(STATUS).map(([k, v]) => (
@@ -77,7 +77,7 @@ export default function ConversationsPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-neo border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -91,10 +91,10 @@ export default function ConversationsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {conversations.map((conv) => (
-                  <tr key={conv.id} className="hover:bg-gray-50/70 transition-colors">
+                  <tr key={conv.id} className="hover:bg-neo-bg/40 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm uppercase shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neo-bg flex items-center justify-center text-neo font-bold text-sm uppercase shrink-0">
                           {(conv.customer_name ?? '?')[0]}
                         </div>
                         <span className="font-medium text-gray-900">{conv.customer_name ?? 'Inconnu'}</span>
@@ -112,7 +112,7 @@ export default function ConversationsPage() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => loadDetail(conv.id)}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                        className="text-xs font-medium text-neo hover:text-neo-dark bg-neo-bg hover:bg-neo-border px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
                       >
                         <MessageSquare size={12} /> Voir
                       </button>
@@ -121,9 +121,7 @@ export default function ConversationsPage() {
                 ))}
                 {conversations.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-gray-300 text-sm">
-                      Aucune conversation
-                    </td>
+                    <td colSpan={7} className="text-center py-16 text-gray-300 text-sm">Aucune conversation</td>
                   </tr>
                 )}
               </tbody>
@@ -136,11 +134,9 @@ export default function ConversationsPage() {
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
-
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
+                <div className="w-10 h-10 rounded-full bg-neo-bg flex items-center justify-center text-neo font-bold uppercase">
                   {(selected.customer_name ?? '?')[0]}
                 </div>
                 <div>
@@ -156,7 +152,6 @@ export default function ConversationsPage() {
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gray-50">
               {(selected.messages ?? []).length === 0 && (
                 <p className="text-center text-gray-400 text-sm py-8">Aucun message</p>
@@ -165,11 +160,11 @@ export default function ConversationsPage() {
                 <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-sm px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
                     msg.direction === 'outbound'
-                      ? 'bg-blue-600 text-white rounded-br-none'
+                      ? 'bg-neo text-white rounded-br-none'
                       : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
                   }`}>
                     <p>{msg.content}</p>
-                    <p className={`text-xs mt-1.5 text-right ${msg.direction === 'outbound' ? 'text-blue-200' : 'text-gray-400'}`}>
+                    <p className={`text-xs mt-1.5 text-right ${msg.direction === 'outbound' ? 'text-white/60' : 'text-gray-400'}`}>
                       {format(new Date(msg.created_at), 'HH:mm')}
                     </p>
                   </div>

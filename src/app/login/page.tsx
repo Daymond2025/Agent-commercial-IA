@@ -61,7 +61,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-blue-400 text-sm">© 2024 Daymond — Côte d'Ivoire</p>
+        <p className="text-blue-400 text-sm">© 2026 Daymond — Côte d'Ivoire</p>
       </div>
 
       {/* Right panel */}

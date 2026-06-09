@@ -9,7 +9,7 @@ import { X, MessageSquare } from 'lucide-react';
 const STATUS: Record<string, { label: string; bg: string; text: string }> = {
   active:               { label: 'Active',          bg: 'bg-blue-100',    text: 'text-blue-700'   },
   pending_confirmation: { label: 'En confirmation', bg: 'bg-yellow-100',  text: 'text-yellow-700' },
-  confirmed:            { label: 'Confirmée',       bg: 'bg-emerald-100', text: 'text-emerald-700'},
+  confirmed:            { label: 'Confirmée',       bg: 'bg-neo-green-bg', text: 'text-neo-green-dark'},
   abandoned:            { label: 'Abandonnée',      bg: 'bg-red-100',     text: 'text-red-700'    },
   completed:            { label: 'Terminée',        bg: 'bg-gray-100',    text: 'text-gray-600'   },
 };

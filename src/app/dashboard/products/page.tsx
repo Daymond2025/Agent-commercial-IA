@@ -81,7 +81,7 @@ export default function ProductsPage() {
                 </div>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                p.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                p.is_available ? 'bg-neo-green-bg text-neo-green-dark' : 'bg-red-100 text-red-600'
               }`}>
                 {p.is_available ? 'Disponible' : 'Indisponible'}
               </span>

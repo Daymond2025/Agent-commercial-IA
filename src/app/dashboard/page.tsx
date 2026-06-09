@@ -35,7 +35,7 @@ function KpiCard({ title, value, sub, icon: Icon, color, trend }: {
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
       {trend && (
-        <div className={`flex items-center gap-1 text-xs font-semibold ${trend.up ? 'text-emerald-600' : 'text-red-500'}`}>
+        <div className={`flex items-center gap-1 text-xs font-semibold ${trend.up ? 'text-neo-green' : 'text-red-500'}`}>
           {trend.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
           {trend.value}% vs hier
         </div>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
           value={convs?.active ?? 0}
           sub={`${convs?.total_today ?? 0} nouvelles aujourd'hui`}
           icon={MessageSquare}
-          color="bg-emerald-500"
+          color="bg-neo-green"
           trend={{ value: 8, up: true }}
         />
         <KpiCard
@@ -179,7 +179,7 @@ export default function DashboardPage() {
             {[
               { label: 'En attente',  value: orders?.pending   ?? 0, color: 'bg-orange-400', pct: orders?.total ? Math.round(((orders?.pending ?? 0) / orders.total) * 100) : 0 },
               { label: 'Confirmées', value: orders?.confirmed  ?? 0, color: 'bg-blue-500',   pct: orders?.total ? Math.round(((orders?.confirmed ?? 0) / orders.total) * 100) : 0 },
-              { label: 'Livrées',    value: orders?.delivered  ?? 0, color: 'bg-emerald-500',pct: orders?.total ? Math.round(((orders?.delivered ?? 0) / orders.total) * 100) : 0 },
+              { label: 'Livrées',    value: orders?.delivered  ?? 0, color: 'bg-neo-green',pct: orders?.total ? Math.round(((orders?.delivered ?? 0) / orders.total) * 100) : 0 },
             ].map((item) => (
               <div key={item.label}>
                 <div className="flex items-center justify-between text-xs mb-1">
@@ -200,7 +200,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {[
               { label: 'Actives',     value: convs?.active    ?? 0, color: 'bg-blue-500' },
-              { label: 'Confirmées',  value: convs?.confirmed ?? 0, color: 'bg-emerald-500' },
+              { label: 'Confirmées',  value: convs?.confirmed ?? 0, color: 'bg-neo-green' },
               { label: 'Abandonnées', value: convs?.abandoned ?? 0, color: 'bg-red-400' },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
@@ -229,7 +229,7 @@ export default function DashboardPage() {
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Aujourd'hui</span>
-              <span className="font-semibold text-emerald-600">
+              <span className="font-semibold text-neo-green">
                 +{fmt(orders?.revenue_today ?? 0)} F
               </span>
             </div>

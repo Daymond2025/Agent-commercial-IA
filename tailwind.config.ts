@@ -5,9 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        neo: {
+          green:       'oklch(.67 .22 144.33)',
+          'green-light':'oklch(.85 .15 144.33)',
+          'green-dark': 'oklch(.50 .22 144.33)',
+          'green-bg':   'oklch(.96 .04 144.33)',
+        },
         daymond: {
-          blue: '#1e40af',
-          green: '#16a34a',
+          blue:  '#0B1739',
+          navy:  '#0f1c3f',
         },
       },
     },

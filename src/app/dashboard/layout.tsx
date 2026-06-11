@@ -4,17 +4,20 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
+import api from '@/lib/api';
 import {
   LayoutDashboard, ShoppingCart, MessageSquare,
-  Package, Bot, LogOut, Menu, X, ChevronRight,
+  Package, Bot, LogOut, Menu, X, ChevronRight, PhoneMissed, Settings,
 } from 'lucide-react';
 
-const navItems = [
-  { href: '/dashboard',              label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/dashboard/orders',        label: 'Commandes',       icon: ShoppingCart },
-  { href: '/dashboard/conversations', label: 'Conversations',   icon: MessageSquare },
-  { href: '/dashboard/products',      label: 'Produits',        icon: Package,  adminOnly: true },
-  { href: '/dashboard/agents',        label: 'Agents WhatsApp', icon: Bot,      adminOnly: true },
+const NAV_CONFIG = [
+  { href: '/dashboard',               label: 'Tableau de bord',  icon: LayoutDashboard },
+  { href: '/dashboard/orders',         label: 'Commandes',        icon: ShoppingCart },
+  { href: '/dashboard/leads',          label: 'Leads à relancer', icon: PhoneMissed, showBadge: true },
+  { href: '/dashboard/conversations',  label: 'Conversations',    icon: MessageSquare },
+  { href: '/dashboard/products',       label: 'Produits',         icon: Package,  adminOnly: true },
+  { href: '/dashboard/agents',         label: 'Agents WhatsApp',  icon: Bot,      adminOnly: true },
+  { href: '/dashboard/settings',       label: 'Paramètres',       icon: Settings },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -22,12 +25,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [user, setUser]               = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [leadsCount, setLeadsCount]   = useState<number | null>(null);
 
   useEffect(() => {
     const token    = Cookies.get('token');
     const userData = Cookies.get('user');
     if (!token) { router.push('/login'); return; }
     if (userData) setUser(JSON.parse(userData));
+
+    // Badge leads — silencieux si erreur
+    api.get('/leads/count')
+      .then(({ data }) => setLeadsCount(data.count))
+      .catch(() => {});
   }, []);
 
   function logout() {
@@ -36,8 +45,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   }
 
-  const filteredNav = navItems.filter(item => !item.adminOnly || user?.role === 'admin');
-  const pageLabel   = navItems.find(n => n.href === pathname)?.label ?? 'Dashboard';
+  const navItems = NAV_CONFIG
+    .filter(item => !item.adminOnly || user?.role === 'admin')
+    .map(item => ({
+      ...item,
+      badge: item.showBadge ? leadsCount : null,
+    }));
+
+  const pageLabel = NAV_CONFIG.find(n => n.href === pathname)?.label ?? 'Dashboard';
 
   return (
     <div className="flex h-screen bg-[#F0F2F8] font-sans">
@@ -68,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Nav */}
         <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest px-3 mb-3">Menu</p>
-          {filteredNav.map((item) => {
+          {navItems.map((item) => {
             const Icon   = item.icon;
             const active = pathname === item.href;
             return (
@@ -87,7 +102,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Icon size={17} className={active ? 'text-white' : 'text-white/50 group-hover:text-white'} />
                   {item.label}
                 </div>
-                {active && <ChevronRight size={14} className="text-white/70" />}
+                <div className="flex items-center gap-2">
+                  {item.badge !== null && item.badge !== undefined && item.badge > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                  {active && <ChevronRight size={14} className="text-white/70" />}
+                </div>
               </Link>
             );
           })}

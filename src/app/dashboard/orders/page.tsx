@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Package } from 'lucide-react';
 
 const STATUS: Record<string, { label: string; bg: string; text: string }> = {
   pending:    { label: 'En attente',    bg: 'bg-orange-100',  text: 'text-orange-700'    },
@@ -111,7 +111,27 @@ export default function OrdersPage() {
                       <p className="font-medium text-gray-900">{order.customer_name}</p>
                       <p className="text-gray-400 text-xs">{order.customer_phone}</p>
                     </td>
-                    <td className="px-5 py-4 text-gray-700">{order.product?.name ?? '—'}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {order.product?.image_url ? (
+                          <img
+                            src={order.product.image_url}
+                            alt={order.product.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-gray-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                            <Package size={14} className="text-gray-400" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{order.product?.name ?? '—'}</p>
+                          {order.product?.brand && (
+                            <p className="text-xs text-gray-400">{order.product.brand}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-5 py-4 font-semibold text-gray-900">{fmt(order.total_amount)} F</td>
                     <td className="px-5 py-4"><Badge status={order.status} /></td>
                     <td className="px-5 py-4 text-gray-400 text-xs whitespace-nowrap">
@@ -153,6 +173,21 @@ export default function OrdersPage() {
             </div>
 
             <div className="px-6 py-5">
+              {/* Image produit dans le modal */}
+              {selected.product?.image_url && (
+                <div className="flex items-center gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
+                  <img
+                    src={selected.product.image_url}
+                    alt={selected.product.name}
+                    className="w-16 h-16 object-cover rounded-xl border border-gray-200"
+                  />
+                  <div>
+                    <p className="font-semibold text-gray-900">{selected.product.name}</p>
+                    {selected.product.brand && <p className="text-xs text-gray-400">{selected.product.brand}</p>}
+                    <p className="text-neo font-bold mt-1">{fmt(selected.total_amount)} FCFA</p>
+                  </div>
+                </div>
+              )}
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {[
                   ['Client',   selected.customer_name],

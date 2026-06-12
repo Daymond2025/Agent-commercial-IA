@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '@/lib/api';
-import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, Bot, MessageSquare, ChevronRight, Package, MapPin } from 'lucide-react';
+import { Search, Bot, MessageSquare, Package, MapPin, Send, Pause, Play, AlertTriangle } from 'lucide-react';
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
@@ -86,22 +86,28 @@ function StageProgress({ stage }: { stage: string }) {
 // ── Composant principal ──────────────────────────────────────────────────────
 
 export default function ConversationsPage() {
-  const [convList, setConvList]   = useState<any[]>([]);
-  const [agents, setAgents]       = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [selected, setSelected]   = useState<any>(null);
+  const [convList, setConvList]       = useState<any[]>([]);
+  const [agents, setAgents]           = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [selected, setSelected]       = useState<any>(null);
   const [loadingChat, setLoadingChat] = useState(false);
-  const [meta, setMeta]           = useState<any>(null);
-  const [page, setPage]           = useState(1);
+  const [meta, setMeta]               = useState<any>(null);
+  const [page, setPage]               = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Reply & AI toggle
+  const [replyText, setReplyText]     = useState('');
+  const [sending, setSending]         = useState(false);
+  const [togglingAI, setTogglingAI]   = useState(false);
+
   // Filtres
-  const [search, setSearch]       = useState('');
-  const [statusTab, setStatusTab] = useState('');
+  const [search, setSearch]           = useState('');
+  const [statusTab, setStatusTab]     = useState('');
   const [agentFilter, setAgentFilter] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchTimer    = useRef<ReturnType<typeof setTimeout>>();
+  const replyRef       = useRef<HTMLTextAreaElement>(null);
 
   // ── Chargement liste ──────────────────────────────────────────────────────
 
@@ -140,6 +146,7 @@ export default function ConversationsPage() {
   async function openConversation(conv: any) {
     setSelected(null);
     setLoadingChat(true);
+    setReplyText('');
     const { data } = await api.get(`/conversations/${conv.id}`);
     setSelected(data);
     setLoadingChat(false);
@@ -150,6 +157,45 @@ export default function ConversationsPage() {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     }
   }, [selected]);
+
+  // ── Envoyer un message depuis le dashboard ────────────────────────────────
+
+  async function sendReply() {
+    if (!replyText.trim() || !selected || sending) return;
+    setSending(true);
+    try {
+      const { data } = await api.post(`/conversations/${selected.id}/send`, { message: replyText.trim() });
+      // Si c'était une commande IA (.., ...)
+      if ('ai_paused' in data || 'ai_active' in data) {
+        setSelected((prev: any) => ({ ...prev, ai_active: data.ai_active ?? false }));
+      } else {
+        // Ajouter le message dans la liste locale
+        setSelected((prev: any) => ({
+          ...prev,
+          messages: [...(prev.messages ?? []), { ...data, created_at: new Date().toISOString() }],
+        }));
+      }
+      setReplyText('');
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch {
+      // Fenêtre expirée ou autre erreur
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // ── Toggle IA ─────────────────────────────────────────────────────────────
+
+  async function toggleAI() {
+    if (!selected || togglingAI) return;
+    setTogglingAI(true);
+    try {
+      const { data } = await api.patch(`/conversations/${selected.id}/toggle-ai`);
+      setSelected((prev: any) => ({ ...prev, ai_active: data.ai_active }));
+    } finally {
+      setTogglingAI(false);
+    }
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -325,6 +371,22 @@ export default function ConversationsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge status={selected.status} />
+                  {/* Toggle IA */}
+                  <button
+                    onClick={toggleAI}
+                    disabled={togglingAI}
+                    title={selected.ai_active !== false ? "Mettre l'IA en pause" : "Relancer l'IA"}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                      selected.ai_active !== false
+                        ? 'bg-neo-bg text-neo-dark hover:bg-neo hover:text-white'
+                        : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'
+                    }`}
+                  >
+                    {selected.ai_active !== false
+                      ? <><Pause size={11} /> IA active</>
+                      : <><Play size={11} /> IA en pause</>
+                    }
+                  </button>
                   <span className="text-xs text-gray-400">{selected.messages_count ?? selected.messages?.length ?? 0} msg</span>
                 </div>
               </div>
@@ -389,6 +451,43 @@ export default function ConversationsPage() {
                 );
               })}
               <div ref={messagesEndRef} />
+            </div>
+
+            {/* ─ Zone de réponse ────────────────────────────────────── */}
+            <div className="px-4 py-3 border-t border-gray-100 bg-white shrink-0">
+              {selected.ai_active === false && (
+                <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 rounded-xl px-3 py-2 mb-2">
+                  <AlertTriangle size={12} />
+                  <span>IA en pause — vous répondez manuellement. Cliquez sur <strong>IA en pause</strong> pour relancer l'agent.</span>
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <textarea
+                  ref={replyRef}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+                  }}
+                  rows={2}
+                  placeholder={
+                    selected.ai_active !== false
+                      ? "Répondre (ou tapez '..' pour mettre l'IA en pause)…"
+                      : "Répondre au client directement…"
+                  }
+                  className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neo transition"
+                />
+                <button
+                  onClick={sendReply}
+                  disabled={sending || !replyText.trim()}
+                  className="h-[60px] w-11 flex items-center justify-center bg-neo text-white rounded-xl hover:bg-neo-dark disabled:opacity-40 transition"
+                >
+                  {sending
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Send size={15} />
+                  }
+                </button>
+              </div>
             </div>
 
             {/* ─ Infos commande (si confirmée) ──────────────────────── */}

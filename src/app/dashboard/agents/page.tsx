@@ -1,10 +1,20 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/api';
-import { Plus, Bot, Power, Pencil, X, Upload, Globe, Check } from 'lucide-react';
+import {
+  AlertCircle, Bot, Check, FileText, FolderOpen, Globe,
+  Pencil, Plus, Power, Sparkles, Upload, X,
+} from 'lucide-react';
 
 type ModalMode = null | 'create' | 'edit';
+
+interface KbDoc {
+  id: number;
+  original_name: string;
+  mime_type: string;
+  created_at: string;
+}
 
 const initForm = () => ({
   name: '',
@@ -14,21 +24,38 @@ const initForm = () => ({
   waba_id: '',
   persona_name: 'Awa',
   instructions: '',
-  knowledge_base: '',
   website_url: '',
   avatarFile: null as File | null,
   avatarPreview: null as string | null,
   product_ids: [] as number[],
 });
 
+const ACCEPTED = '.pdf,.txt,.csv,application/pdf,text/plain,text/csv';
+
+function fileEmoji(mime: string) {
+  if (mime.includes('pdf')) return '📄';
+  if (mime.includes('csv')) return '📊';
+  return '📝';
+}
+
 export default function AgentsPage() {
-  const [agents, setAgents]       = useState<any[]>([]);
-  const [allProducts, setAll]     = useState<any[]>([]);
-  const [modal, setModal]         = useState<ModalMode>(null);
-  const [editId, setEditId]       = useState<number | null>(null);
-  const [form, setForm]           = useState(initForm());
-  const [loading, setLoading]     = useState(false);
-  const avatarRef                 = useRef<HTMLInputElement>(null);
+  const [agents,      setAgents]     = useState<any[]>([]);
+  const [allProducts, setAll]        = useState<any[]>([]);
+  const [modal,       setModal]      = useState<ModalMode>(null);
+  const [editId,      setEditId]     = useState<number | null>(null);
+  const [form,        setForm]       = useState(initForm());
+  const [saving,      setSaving]     = useState(false);
+  const avatarRef                    = useRef<HTMLInputElement>(null);
+
+  // KB state
+  const [kbDocs,      setKbDocs]     = useState<KbDoc[]>([]);
+  const [pending,     setPending]    = useState<File[]>([]);
+  const [uploading,   setUploading]  = useState(false);
+  const [training,    setTraining]   = useState(false);
+  const [kbMsg,       setKbMsg]      = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [dragOver,    setDragOver]   = useState(false);
+  const kbFileRef                    = useRef<HTMLInputElement>(null);
+  const kbDirRef                     = useRef<HTMLInputElement>(null);
 
   async function load() {
     const [{ data: ag }, { data: pr }] = await Promise.all([
@@ -41,28 +68,51 @@ export default function AgentsPage() {
 
   useEffect(() => { load(); }, []);
 
-  function openCreate() { setForm(initForm()); setEditId(null); setModal('create'); }
+  async function loadDocs(id: number) {
+    const { data } = await api.get(`/agents/${id}/documents`);
+    setKbDocs(data);
+  }
+
+  function resetKb() {
+    setPending([]);
+    setKbDocs([]);
+    setKbMsg(null);
+    setDragOver(false);
+  }
+
+  function openCreate() {
+    setForm(initForm());
+    setEditId(null);
+    setModal('create');
+    resetKb();
+  }
 
   function openEdit(agent: any) {
     setForm({
-      name: agent.name ?? '',
-      phone_number: agent.phone_number ?? '',
+      name:            agent.name ?? '',
+      phone_number:    agent.phone_number ?? '',
       phone_number_id: agent.phone_number_id ?? '',
-      access_token: '',
-      waba_id: agent.waba_id ?? '',
-      persona_name: agent.persona?.name ?? 'Awa',
-      instructions: agent.instructions ?? '',
-      knowledge_base: agent.knowledge_base ?? '',
-      website_url: agent.website_url ?? '',
-      avatarFile: null,
-      avatarPreview: agent.avatar_url ?? null,
-      product_ids: (agent.products ?? []).map((p: any) => p.id),
+      access_token:    '',
+      waba_id:         agent.waba_id ?? '',
+      persona_name:    agent.persona?.name ?? 'Awa',
+      instructions:    agent.instructions ?? '',
+      website_url:     agent.website_url ?? '',
+      avatarFile:      null,
+      avatarPreview:   agent.avatar_url ?? null,
+      product_ids:     (agent.products ?? []).map((p: any) => p.id),
     });
     setEditId(agent.id);
     setModal('edit');
+    resetKb();
+    loadDocs(agent.id);
   }
 
-  function closeModal() { setModal(null); setEditId(null); setForm(initForm()); }
+  function closeModal() {
+    setModal(null);
+    setEditId(null);
+    setForm(initForm());
+    resetKb();
+  }
 
   function toggleProduct(id: number) {
     setForm(f => ({
@@ -79,8 +129,66 @@ export default function AgentsPage() {
     setForm(f => ({ ...f, avatarFile: file, avatarPreview: URL.createObjectURL(file) }));
   }
 
+  function addFiles(files: FileList | File[]) {
+    const valid = Array.from(files).filter(f =>
+      f.name.match(/\.(pdf|txt|csv)$/i)
+    );
+    if (!valid.length) {
+      setKbMsg({ type: 'err', text: 'Formats acceptés : PDF, TXT, CSV uniquement' });
+      return;
+    }
+    setPending(prev => {
+      const names = new Set(prev.map(f => f.name));
+      return [...prev, ...valid.filter(f => !names.has(f.name))];
+    });
+    setKbMsg(null);
+  }
+
+  function onKbInput(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.length) addFiles(e.target.files);
+    e.target.value = '';
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+  }
+
+  async function uploadFiles(agentId: number) {
+    if (!pending.length) return;
+    setUploading(true);
+    setKbMsg(null);
+    try {
+      const fd = new FormData();
+      pending.forEach(f => fd.append('documents[]', f));
+      const { data } = await api.post(`/agents/${agentId}/knowledge-base/upload`, fd);
+      setKbMsg({ type: 'ok', text: data.message });
+      setPending([]);
+      await loadDocs(agentId);
+    } catch (err: any) {
+      setKbMsg({ type: 'err', text: err.response?.data?.message ?? "Erreur lors de l'upload" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function trainAgent() {
+    if (!editId) return;
+    setTraining(true);
+    setKbMsg(null);
+    try {
+      const { data } = await api.post(`/agents/${editId}/train`);
+      setKbMsg({ type: 'ok', text: data.message });
+    } catch (err: any) {
+      setKbMsg({ type: 'err', text: err.response?.data?.message ?? 'Pas assez de données pour former l\'agent' });
+    } finally {
+      setTraining(false);
+    }
+  }
+
   async function save() {
-    setLoading(true);
+    setSaving(true);
     try {
       let agentId: number;
 
@@ -88,12 +196,10 @@ export default function AgentsPage() {
         const fd = new FormData();
         fd.append('name', form.name);
         fd.append('persona', JSON.stringify({ name: form.persona_name }));
-        if (form.access_token)   fd.append('access_token', form.access_token);
-        if (form.instructions)   fd.append('instructions', form.instructions);
-        if (form.knowledge_base) fd.append('knowledge_base', form.knowledge_base);
-        if (form.website_url)    fd.append('website_url', form.website_url);
+        if (form.access_token) fd.append('access_token', form.access_token);
+        if (form.instructions) fd.append('instructions', form.instructions);
+        if (form.website_url)  fd.append('website_url', form.website_url);
         fd.append('avatar', form.avatarFile);
-
         if (modal === 'create') {
           fd.append('phone_number',    form.phone_number);
           fd.append('phone_number_id', form.phone_number_id);
@@ -107,14 +213,12 @@ export default function AgentsPage() {
         }
       } else {
         const payload: any = {
-          name:           form.name,
-          persona:        { name: form.persona_name },
-          instructions:   form.instructions   || null,
-          knowledge_base: form.knowledge_base || null,
-          website_url:    form.website_url    || null,
+          name:         form.name,
+          persona:      { name: form.persona_name },
+          instructions: form.instructions || null,
+          website_url:  form.website_url  || null,
         };
         if (form.access_token) payload.access_token = form.access_token;
-
         if (modal === 'create') {
           payload.phone_number    = form.phone_number;
           payload.phone_number_id = form.phone_number_id;
@@ -129,10 +233,14 @@ export default function AgentsPage() {
 
       await api.post(`/agents/${agentId}/products`, { product_ids: form.product_ids });
 
+      if (pending.length > 0) {
+        await uploadFiles(agentId);
+      }
+
       await load();
       closeModal();
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
@@ -144,7 +252,7 @@ export default function AgentsPage() {
   return (
     <div className="space-y-5">
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Agents WhatsApp</h1>
@@ -158,11 +266,10 @@ export default function AgentsPage() {
         </button>
       </div>
 
-      {/* Cards */}
+      {/* ── Cards ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {agents.map((agent) => (
           <div key={agent.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-neo-bg flex items-center justify-center shrink-0 border border-neo-border">
                 {agent.avatar_url
@@ -188,9 +295,7 @@ export default function AgentsPage() {
                 <p>
                   <span className="font-medium text-gray-700">Produits :</span>{' '}
                   {agent.products.slice(0, 2).map((p: any) => p.name).join(', ')}
-                  {agent.products.length > 2 && (
-                    <span className="text-gray-400"> +{agent.products.length - 2}</span>
-                  )}
+                  {agent.products.length > 2 && <span className="text-gray-400"> +{agent.products.length - 2}</span>}
                 </p>
               )}
               {agent.website_url && (
@@ -232,7 +337,7 @@ export default function AgentsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* ── Modal ───────────────────────────────────────────── */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
@@ -247,13 +352,12 @@ export default function AgentsPage() {
               </button>
             </div>
 
-            {/* Scrollable body */}
+            {/* Body scrollable */}
             <div className="overflow-y-auto px-6 py-5 space-y-7">
 
-              {/* ── IDENTITÉ ─────────────────────────────────────── */}
+              {/* ── IDENTITÉ ─── */}
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-3">Identité</p>
-
                 <div className="flex items-center gap-4 mb-4">
                   <button
                     type="button"
@@ -268,21 +372,16 @@ export default function AgentsPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-700">Photo de profil</p>
                     <p className="text-xs text-gray-400 mt-0.5">JPG, PNG — max 2 Mo</p>
-                    <button
-                      type="button"
-                      onClick={() => avatarRef.current?.click()}
-                      className="text-xs text-neo hover:underline mt-1"
-                    >
+                    <button type="button" onClick={() => avatarRef.current?.click()} className="text-xs text-neo hover:underline mt-1">
                       {form.avatarPreview ? 'Changer' : 'Choisir une image'}
                     </button>
                   </div>
                   <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={onAvatar} />
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { key: 'name', label: "Nom de l'agent", placeholder: 'Agent Abidjan' },
-                    { key: 'persona_name', label: 'Prénom IA', placeholder: 'Awa, Kouamé, Sarah…' },
+                    { key: 'name',         label: "Nom de l'agent", placeholder: 'Agent Abidjan' },
+                    { key: 'persona_name', label: 'Prénom IA',      placeholder: 'Awa, Kouamé, Sarah…' },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key}>
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">{label}</label>
@@ -298,7 +397,7 @@ export default function AgentsPage() {
                 </div>
               </section>
 
-              {/* ── CONNEXION WHATSAPP ────────────────────────────── */}
+              {/* ── CONNEXION WHATSAPP ─── */}
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-3">Connexion WhatsApp (Meta)</p>
                 <div className="space-y-3">
@@ -347,7 +446,7 @@ export default function AgentsPage() {
                 </div>
               </section>
 
-              {/* ── CONFIGURATION IA ─────────────────────────────── */}
+              {/* ── CONFIGURATION IA ─── */}
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-3">Configuration IA</p>
                 <div className="space-y-3">
@@ -362,18 +461,6 @@ export default function AgentsPage() {
                     />
                     <p className="text-xs text-gray-400 mt-1">S'ajoutent au prompt de base Daymond — ne le remplacent pas</p>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Base de connaissances</label>
-                    <textarea
-                      value={form.knowledge_base}
-                      onChange={(e) => setForm({ ...form, knowledge_base: e.target.value })}
-                      rows={4}
-                      placeholder="Ex: Délai de livraison 24-48h à Abidjan, 3-5 jours en province. Garantie 1 an constructeur. SAV au 05 05 05 05…"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-gray-50 resize-none"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">URL du site / catalogue</label>
                     <div className="relative">
@@ -390,7 +477,162 @@ export default function AgentsPage() {
                 </div>
               </section>
 
-              {/* ── PRODUITS ASSIGNÉS ─────────────────────────────── */}
+              {/* ── BASE DE CONNAISSANCES ─── */}
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold text-neo uppercase tracking-widest">Base de connaissances</p>
+                  {modal === 'edit' && (
+                    <button
+                      type="button"
+                      onClick={trainAgent}
+                      disabled={training}
+                      className="flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition disabled:opacity-60"
+                    >
+                      <Sparkles size={13} />
+                      {training ? 'Formation…' : "Former l'IA"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Notifications KB */}
+                {kbMsg && (
+                  <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm mb-3 border ${
+                    kbMsg.type === 'ok'
+                      ? 'text-neo-dark bg-neo-bg border-neo-border'
+                      : 'text-red-700 bg-red-50 border-red-200'
+                  }`}>
+                    {kbMsg.type === 'ok'
+                      ? <Check size={14} className="shrink-0 mt-0.5" />
+                      : <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    }
+                    {kbMsg.text}
+                  </div>
+                )}
+
+                {modal === 'create' ? (
+                  /* Mode création : placeholder */
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-gray-50">
+                    <FileText size={28} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-500">Documents disponibles après création</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Créez l'agent, puis importez vos fichiers PDF, TXT ou CSV depuis "Modifier"
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+
+                    {/* Liste docs existants */}
+                    {kbDocs.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                          Documents importés ({kbDocs.length})
+                        </p>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                          {kbDocs.map(doc => (
+                            <div key={doc.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5">
+                              <span className="shrink-0 text-base">{fileEmoji(doc.mime_type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{doc.original_name}</p>
+                                <p className="text-xs text-gray-400">
+                                  {new Date(doc.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Drop zone */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={onDrop}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                        dragOver
+                          ? 'border-neo bg-neo-bg'
+                          : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                      }`}
+                      onClick={() => kbFileRef.current?.click()}
+                    >
+                      <Upload size={22} className={`mx-auto mb-2 transition ${dragOver ? 'text-neo' : 'text-gray-300'}`} />
+                      <p className="text-sm font-medium text-gray-600">
+                        Glissez vos fichiers ici ou{' '}
+                        <span className="text-neo">parcourir</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); kbDirRef.current?.click(); }}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-neo mx-auto mt-2 transition"
+                      >
+                        <FolderOpen size={12} /> Importer un dossier entier
+                      </button>
+                      <p className="text-xs text-gray-400 mt-2">PDF, TXT, CSV — max 10 Mo par fichier</p>
+                    </div>
+
+                    {/* Inputs cachés */}
+                    <input
+                      ref={kbFileRef}
+                      type="file"
+                      multiple
+                      accept={ACCEPTED}
+                      className="hidden"
+                      onChange={onKbInput}
+                    />
+                    <input
+                      ref={kbDirRef}
+                      type="file"
+                      multiple
+                      // @ts-ignore – webkitdirectory is not in React types
+                      webkitdirectory="true"
+                      accept={ACCEPTED}
+                      className="hidden"
+                      onChange={onKbInput}
+                    />
+
+                    {/* Fichiers en attente */}
+                    {pending.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          En attente ({pending.length} fichier{pending.length > 1 ? 's' : ''})
+                        </p>
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                          {pending.map(f => (
+                            <div key={f.name} className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 text-sm">
+                              <span className="shrink-0">{fileEmoji(f.type)}</span>
+                              <span className="flex-1 truncate text-gray-700 font-medium">{f.name}</span>
+                              <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                                {f.size >= 1024 * 1024
+                                  ? `${(f.size / 1024 / 1024).toFixed(1)} Mo`
+                                  : `${(f.size / 1024).toFixed(0)} Ko`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setPending(p => p.filter(x => x.name !== f.name))}
+                                className="text-gray-400 hover:text-red-500 transition shrink-0"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => uploadFiles(editId!)}
+                          disabled={uploading}
+                          className="w-full bg-neo hover:bg-neo-dark text-white rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-60"
+                        >
+                          {uploading
+                            ? 'Envoi en cours…'
+                            : `Uploader ${pending.length} fichier${pending.length > 1 ? 's' : ''}`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* ── PRODUITS ASSIGNÉS ─── */}
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-1">Produits assignés</p>
                 <p className="text-xs text-gray-400 mb-3">
@@ -441,10 +683,10 @@ export default function AgentsPage() {
               </button>
               <button
                 onClick={save}
-                disabled={loading}
+                disabled={saving}
                 className="flex-1 bg-neo hover:bg-neo-dark text-white rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-60"
               >
-                {loading ? 'Enregistrement…' : modal === 'create' ? "Créer l'agent" : 'Enregistrer'}
+                {saving ? 'Enregistrement…' : modal === 'create' ? "Créer l'agent" : 'Enregistrer'}
               </button>
             </div>
           </div>

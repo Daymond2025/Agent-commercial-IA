@@ -6,15 +6,23 @@ const config: Config = {
     extend: {
       colors: {
         neo: {
-          // Vert principal Neo — oklch(.67 .22 144.33)
           DEFAULT:   'oklch(.67 .22 144.33)',
-          dark:      'oklch(.48 .20 144.33)',   // hover boutons, textes foncés
-          darker:    'oklch(.32 .16 144.33)',   // sidebar sombre
-          darkest:   'oklch(.20 .10 144.33)',   // fond sidebar très foncé
-          light:     'oklch(.82 .14 144.33)',   // accents clairs
-          bg:        'oklch(.95 .04 144.33)',   // fond badge / card léger
-          border:    'oklch(.88 .08 144.33)',   // bordures vertes légères
+          dark:      'oklch(.48 .20 144.33)',
+          darker:    'oklch(.32 .16 144.33)',
+          darkest:   'oklch(.20 .10 144.33)',
+          light:     'oklch(.82 .14 144.33)',
+          bg:        'oklch(.95 .04 144.33)',
+          border:    'oklch(.88 .08 144.33)',
         },
+      },
+      keyframes: {
+        'slide-up': {
+          '0%':   { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.25s ease-out',
       },
     },
   },

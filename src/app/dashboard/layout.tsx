@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
@@ -12,20 +12,43 @@ import {
 
 const NAV_CONFIG = [
   { href: '/dashboard',               label: 'Tableau de bord',  icon: LayoutDashboard },
-  { href: '/dashboard/orders',         label: 'Commandes',        icon: ShoppingCart },
-  { href: '/dashboard/leads',          label: 'Leads à relancer', icon: PhoneMissed, showBadge: true },
+  { href: '/dashboard/orders',         label: 'Commandes',        icon: ShoppingCart,   showOrderBadge: true },
+  { href: '/dashboard/leads',          label: 'Leads à relancer', icon: PhoneMissed,    showLeadsBadge: true },
   { href: '/dashboard/conversations',  label: 'Conversations',    icon: MessageSquare },
-  { href: '/dashboard/products',       label: 'Produits',         icon: Package,  adminOnly: true },
-  { href: '/dashboard/agents',         label: 'Agents WhatsApp',  icon: Bot,      adminOnly: true },
+  { href: '/dashboard/products',       label: 'Produits',         icon: Package,        adminOnly: true },
+  { href: '/dashboard/agents',         label: 'Agents WhatsApp',  icon: Bot,            adminOnly: true },
   { href: '/dashboard/settings',       label: 'Paramètres',       icon: Settings },
 ];
+
+// Deux bips courts via Web Audio — aucun fichier externe requis
+function playOrderAlert() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    [0, 0.22].forEach((delay) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.35, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.28);
+    });
+  } catch { /* contexte audio non disponible */ }
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const pathname = usePathname();
-  const [user, setUser]               = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [leadsCount, setLeadsCount]   = useState<number | null>(null);
+  const [user, setUser]                     = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
+  const [leadsCount, setLeadsCount]         = useState<number | null>(null);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [toast, setToast]                   = useState<string | null>(null);
+  const lastOrderTotal  = useRef<number | null>(null);
+  const toastTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const token    = Cookies.get('token');
@@ -39,6 +62,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .catch(() => {});
   }, []);
 
+  // ── Polling nouvelles commandes toutes les 15 s ───────────────────────────
+  useEffect(() => {
+    const checkOrders = async () => {
+      try {
+        const { data } = await api.get('/orders/stats');
+        const total = data.total ?? 0;
+
+        if (lastOrderTotal.current === null) {
+          // Premier appel : initialiser la référence sans alerter
+          lastOrderTotal.current = total;
+        } else if (total > lastOrderTotal.current) {
+          const diff = total - lastOrderTotal.current;
+          lastOrderTotal.current = total;
+          setNewOrdersCount((prev) => prev + diff);
+          playOrderAlert();
+          document.title = `(${diff}) Nouvelle commande — Daymond`;
+
+          // Toast de notification
+          const msg = diff === 1 ? '🛒 Nouvelle commande reçue !' : `🛒 ${diff} nouvelles commandes reçues !`;
+          setToast(msg);
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = setTimeout(() => setToast(null), 6000);
+        }
+      } catch { /* silencieux */ }
+    };
+
+    checkOrders();
+    const interval = setInterval(checkOrders, 15_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Reset badge + titre quand l'admin ouvre la page Commandes ────────────
+  useEffect(() => {
+    if (pathname === '/dashboard/orders') {
+      setNewOrdersCount(0);
+      document.title = 'Daymond — Commercial IA';
+    }
+  }, [pathname]);
+
   function logout() {
     Cookies.remove('token');
     Cookies.remove('user');
@@ -47,10 +109,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = NAV_CONFIG
     .filter(item => !item.adminOnly || user?.role === 'admin')
-    .map(item => ({
-      ...item,
-      badge: item.showBadge ? leadsCount : null,
-    }));
+    .map(item => {
+      let badge: number | null = null;
+      if (item.showLeadsBadge) badge = leadsCount;
+      if (item.showOrderBadge && newOrdersCount > 0) badge = newOrdersCount;
+      return { ...item, badge };
+    });
 
   const pageLabel = NAV_CONFIG.find(n => n.href === pathname)?.label ?? 'Dashboard';
 
@@ -173,6 +237,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* ── Toast nouvelle commande ── */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <Link
+            href="/dashboard/orders"
+            onClick={() => setToast(null)}
+            className="flex items-center gap-3 bg-gray-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl hover:bg-gray-800 transition-colors max-w-xs"
+          >
+            <div className="w-8 h-8 rounded-full bg-neo flex items-center justify-center shrink-0">
+              <ShoppingCart size={16} className="text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold leading-tight">{toast}</p>
+              <p className="text-xs text-white/50 mt-0.5">Cliquer pour voir les commandes</p>
+            </div>
+            <button
+              onClick={(e) => { e.preventDefault(); setToast(null); }}
+              className="ml-1 text-white/40 hover:text-white transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

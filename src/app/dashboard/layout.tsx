@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import {
   LayoutDashboard, ShoppingCart, MessageSquare,
   Package, Bot, LogOut, Menu, X, ChevronRight, PhoneMissed, Settings,
+  BellRing,
 } from 'lucide-react';
 
 const NAV_CONFIG = [
@@ -20,21 +21,26 @@ const NAV_CONFIG = [
   { href: '/dashboard/settings',       label: 'Paramètres',       icon: Settings },
 ];
 
-// Deux bips courts via Web Audio — aucun fichier externe requis
+// 4 bips montants — distinctif et impossible à ignorer
 function playOrderAlert() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    [0, 0.22].forEach((delay) => {
+    [
+      { delay: 0,    freq: 660,  vol: 0.5 },
+      { delay: 0.18, freq: 880,  vol: 0.55 },
+      { delay: 0.36, freq: 990,  vol: 0.6 },
+      { delay: 0.54, freq: 1320, vol: 0.65 },
+    ].forEach(({ delay, freq, vol }) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.35, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
       osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.28);
+      osc.stop(ctx.currentTime + delay + 0.25);
     });
   } catch { /* contexte audio non disponible */ }
 }
@@ -46,20 +52,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [leadsCount, setLeadsCount]         = useState<number | null>(null);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
-  const [toast, setToast]                   = useState<string | null>(null);
-  const lastOrderTotal  = useRef<number | null>(null);
-  const toastTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [toast, setToast]                   = useState<{ msg: string; count: number } | null>(null);
 
+  const lastOrderTotal  = useRef<number | null>(null);
+  const blinkRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const repeatSoundRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nativeNotifRef  = useRef<Notification | null>(null);
+  const pendingCountRef = useRef(0); // commandes non consultées
+
+  // ── Tout effacer quand l'admin consulte les commandes ───────────────────────
+  const clearAllAlerts = useCallback(() => {
+    pendingCountRef.current = 0;
+    setNewOrdersCount(0);
+    setToast(null);
+
+    if (blinkRef.current)       { clearInterval(blinkRef.current); blinkRef.current = null; }
+    if (repeatSoundRef.current) { clearInterval(repeatSoundRef.current); repeatSoundRef.current = null; }
+
+    nativeNotifRef.current?.close();
+    nativeNotifRef.current = null;
+
+    document.title = 'Daymond — Commercial IA';
+  }, []);
+
+  // ── Init auth + permission notifs ─────────────────────────────────────────
   useEffect(() => {
     const token    = Cookies.get('token');
     const userData = Cookies.get('user');
     if (!token) { router.push('/login'); return; }
     if (userData) setUser(JSON.parse(userData));
 
-    // Badge leads — silencieux si erreur
     api.get('/leads/count')
       .then(({ data }) => setLeadsCount(data.count))
       .catch(() => {});
+
+    // Demander la permission pour les notifications natives OS
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, []);
 
   // ── Polling nouvelles commandes toutes les 15 s ───────────────────────────
@@ -70,20 +100,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const total = data.total ?? 0;
 
         if (lastOrderTotal.current === null) {
-          // Premier appel : initialiser la référence sans alerter
           lastOrderTotal.current = total;
-        } else if (total > lastOrderTotal.current) {
+          return;
+        }
+
+        if (total > lastOrderTotal.current) {
           const diff = total - lastOrderTotal.current;
           lastOrderTotal.current = total;
-          setNewOrdersCount((prev) => prev + diff);
-          playOrderAlert();
-          document.title = `(${diff}) Nouvelle commande — Daymond`;
+          pendingCountRef.current += diff;
 
-          // Toast de notification
-          const msg = diff === 1 ? '🛒 Nouvelle commande reçue !' : `🛒 ${diff} nouvelles commandes reçues !`;
-          setToast(msg);
-          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-          toastTimerRef.current = setTimeout(() => setToast(null), 6000);
+          setNewOrdersCount((prev) => prev + diff);
+
+          // 1. Son d'alerte
+          playOrderAlert();
+
+          // 2. Notification native OS (visible même si l'onglet est minimisé)
+          if ('Notification' in window && Notification.permission === 'granted') {
+            nativeNotifRef.current?.close();
+            const label = diff === 1
+              ? 'Nouvelle commande reçue !'
+              : `${diff} nouvelles commandes reçues !`;
+            const notif = new Notification('🛒 Daymond — Commande', {
+              body: label + '\nCliquez pour traiter maintenant.',
+              requireInteraction: true, // reste visible jusqu'à action
+            });
+            notif.onclick = () => {
+              window.focus();
+              router.push('/dashboard/orders');
+              notif.close();
+              clearAllAlerts();
+            };
+            nativeNotifRef.current = notif;
+          }
+
+          // 3. Toast persistant (pas de timer d'auto-fermeture)
+          const msg = diff === 1
+            ? 'Nouvelle commande reçue !'
+            : `${diff} nouvelles commandes reçues !`;
+          setToast({ msg, count: pendingCountRef.current });
+
+          // 4. Titre clignotant dans l'onglet
+          if (!blinkRef.current) {
+            let flip = true;
+            blinkRef.current = setInterval(() => {
+              document.title = flip
+                ? `🔔 (${pendingCountRef.current}) COMMANDE — Daymond`
+                : 'Daymond — Commercial IA';
+              flip = !flip;
+            }, 900);
+          }
+
+          // 5. Son répété toutes les 30 s tant que non consulté
+          if (!repeatSoundRef.current) {
+            repeatSoundRef.current = setInterval(() => {
+              if (pendingCountRef.current > 0) {
+                playOrderAlert();
+              } else {
+                clearInterval(repeatSoundRef.current!);
+                repeatSoundRef.current = null;
+              }
+            }, 30_000);
+          }
         }
       } catch { /* silencieux */ }
     };
@@ -91,15 +168,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     checkOrders();
     const interval = setInterval(checkOrders, 15_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [clearAllAlerts]);
 
-  // ── Reset badge + titre quand l'admin ouvre la page Commandes ────────────
+  // ── Reset quand l'admin ouvre la page Commandes ───────────────────────────
   useEffect(() => {
     if (pathname === '/dashboard/orders') {
-      setNewOrdersCount(0);
-      document.title = 'Daymond — Commercial IA';
+      clearAllAlerts();
     }
-  }, [pathname]);
+  }, [pathname, clearAllAlerts]);
 
   function logout() {
     Cookies.remove('token');
@@ -168,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <div className="flex items-center gap-2">
                   {item.badge !== null && item.badge !== undefined && item.badge > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                    <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none animate-pulse">
                       {item.badge > 99 ? '99+' : item.badge}
                     </span>
                   )}
@@ -222,6 +298,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Indicateur alerte commande dans le header */}
+            {newOrdersCount > 0 && (
+              <Link
+                href="/dashboard/orders"
+                onClick={clearAllAlerts}
+                className="flex items-center gap-2 bg-red-500 text-white rounded-full px-4 py-1.5 animate-pulse hover:bg-red-600 transition-colors"
+              >
+                <BellRing size={14} />
+                <span className="text-xs font-bold">
+                  {newOrdersCount} commande{newOrdersCount > 1 ? 's' : ''} en attente
+                </span>
+              </Link>
+            )}
             <div className="hidden sm:flex items-center gap-2 bg-neo-bg border border-neo-border rounded-full px-4 py-1.5">
               <div className="w-2 h-2 rounded-full bg-neo animate-pulse" />
               <span className="text-xs text-neo-dark font-medium">Système actif</span>
@@ -238,28 +327,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      {/* ── Toast nouvelle commande ── */}
+      {/* ── Toast persistant nouvelle commande ── */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-          <Link
-            href="/dashboard/orders"
-            onClick={() => setToast(null)}
-            className="flex items-center gap-3 bg-gray-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl hover:bg-gray-800 transition-colors max-w-xs"
-          >
-            <div className="w-8 h-8 rounded-full bg-neo flex items-center justify-center shrink-0">
-              <ShoppingCart size={16} className="text-white" />
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up max-w-sm w-full">
+          <div className="bg-gray-900 text-white rounded-2xl shadow-2xl overflow-hidden">
+            {/* Barre rouge animée en haut */}
+            <div className="h-1 bg-red-500 animate-pulse" />
+            <div className="px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shrink-0 animate-bounce">
+                  <ShoppingCart size={18} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold leading-tight">🛒 {toast.msg}</p>
+                  {toast.count > 1 && (
+                    <p className="text-xs text-red-400 font-semibold mt-0.5">
+                      {toast.count} commande{toast.count > 1 ? 's' : ''} non traitée{toast.count > 1 ? 's' : ''}
+                    </p>
+                  )}
+                  <p className="text-xs text-white/50 mt-1">Le son se répète jusqu'à consultation</p>
+                </div>
+                <button
+                  onClick={clearAllAlerts}
+                  className="text-white/30 hover:text-white transition-colors shrink-0 mt-0.5"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <Link
+                href="/dashboard/orders"
+                onClick={clearAllAlerts}
+                className="mt-3 flex items-center justify-center gap-2 w-full bg-red-500 hover:bg-red-600 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors"
+              >
+                <ShoppingCart size={15} />
+                Voir les commandes maintenant
+              </Link>
             </div>
-            <div>
-              <p className="text-sm font-semibold leading-tight">{toast}</p>
-              <p className="text-xs text-white/50 mt-0.5">Cliquer pour voir les commandes</p>
-            </div>
-            <button
-              onClick={(e) => { e.preventDefault(); setToast(null); }}
-              className="ml-1 text-white/40 hover:text-white transition-colors shrink-0"
-            >
-              <X size={14} />
-            </button>
-          </Link>
+          </div>
         </div>
       )}
     </div>

@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     const checkOrders = async () => {
       try {
-        const { data } = await api.get('/orders/stats');
+        const { data } = await api.get('/stats/orders');
         const total = data.total ?? 0;
 
         if (lastOrderTotal.current === null) {

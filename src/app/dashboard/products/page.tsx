@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react';
 import api from '@/lib/api';
-import { Plus, Pencil, Trash2, Package, X, Upload, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, X, Upload, Tag, Link2, Check } from 'lucide-react';
+
+const CHAT_APP_URL = process.env.NEXT_PUBLIC_CHAT_APP_URL || '';
 
 const EMPTY: any = {
   name: '', brand: '', description: '', price: '', sale_price: '',
@@ -15,11 +17,20 @@ const EMPTY: any = {
 const fmt = (n: number) => new Intl.NumberFormat('fr-CI').format(n);
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [modal,    setModal]    = useState<null | 'create' | 'edit'>(null);
-  const [form,     setForm]     = useState<any>(EMPTY);
-  const [loading,  setLoading]  = useState(false);
-  const imageRef                = useRef<HTMLInputElement>(null);
+  const [products,  setProducts] = useState<any[]>([]);
+  const [modal,     setModal]   = useState<null | 'create' | 'edit'>(null);
+  const [form,      setForm]    = useState<any>(EMPTY);
+  const [loading,   setLoading] = useState(false);
+  const [copiedId,  setCopiedId] = useState<number | null>(null);
+  const imageRef                 = useRef<HTMLInputElement>(null);
+
+  function copyLink(product: any) {
+    const url = `${CHAT_APP_URL}/p/${product.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(product.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
 
   async function load() {
     const { data } = await api.get('/products');
@@ -179,6 +190,17 @@ export default function ProductsPage() {
                   <p className="text-xs text-gray-400">Stock : {p.stock} unité{p.stock !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="flex gap-1">
+                  <button
+                    onClick={() => copyLink(p)}
+                    title="Copier le lien pour pub Facebook"
+                    className={`p-2 rounded-lg transition ${
+                      copiedId === p.id
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-gray-400 hover:text-neo hover:bg-neo-bg'
+                    }`}
+                  >
+                    {copiedId === p.id ? <Check size={15} /> : <Link2 size={15} />}
+                  </button>
                   <button onClick={() => openEdit(p)} className="p-2 text-gray-400 hover:text-neo hover:bg-neo-bg rounded-lg transition">
                     <Pencil size={15} />
                   </button>

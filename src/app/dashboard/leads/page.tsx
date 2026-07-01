@@ -42,12 +42,12 @@ function timeAgo(iso: string): string {
 
 function getSuggestedMessage(conv: any): string {
   const prenom    = conv.customer_name ? ` ${conv.customer_name.split(' ')[0]}` : '';
-  const agentName = conv.agent?.persona?.name ?? 'Agent Daymond';
+  const agentName = conv.agent?.persona?.name ?? 'Agent WhatsApp Shop';
 
   const msgs: Record<string, string> = {
-    greeting:          `Bonjour${prenom} ! Je suis ${agentName} de Daymond. Vous avez visité notre catalogue d'ordinateurs. Puis-je vous aider à trouver l'appareil idéal pour vous ? 😊`,
+    greeting:          `Bonjour${prenom} ! Je suis ${agentName} de WhatsApp Shop. Vous avez visité notre catalogue d'ordinateurs. Puis-je vous aider à trouver l'appareil idéal pour vous ? 😊`,
     product_selection: `Bonjour${prenom} ! Avez-vous trouvé l'ordinateur qui correspond à vos besoins ? Je reste disponible pour vous aider dans votre choix. 😊`,
-    customer_info:     `Bonjour${prenom} ! Vous avez sélectionné un ordinateur chez Daymond. Pouvez-vous me confirmer votre adresse de livraison pour finaliser votre commande ?`,
+    customer_info:     `Bonjour${prenom} ! Vous avez sélectionné un ordinateur chez WhatsApp Shop. Pouvez-vous me confirmer votre adresse de livraison pour finaliser votre commande ?`,
     order_summary:     `Bonjour${prenom} ! Votre récapitulatif de commande est prêt. Souhaitez-vous le confirmer ? Je suis là pour répondre à vos dernières questions.`,
     confirmation:      `Bonjour${prenom} ! Votre ordinateur vous attend 🖥️. Confirmez-vous votre commande pour que nous préparions votre livraison ?`,
   };

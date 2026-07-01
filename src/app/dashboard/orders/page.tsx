@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, SlidersHorizontal, X, Package } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Package, Copy, Check } from 'lucide-react';
 
 const STATUS: Record<string, { label: string; bg: string; text: string }> = {
   pending:    { label: 'En attente',    bg: 'bg-orange-100',  text: 'text-orange-700'    },
@@ -26,12 +26,27 @@ function Badge({ status }: { status: string }) {
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-CI').format(n);
 
+function buildOrderText(order: any): string {
+  const lines = [
+    `Commande ${order.reference}`,
+    `Client : ${order.customer_name}`,
+    `Téléphone : ${order.customer_phone}`,
+    order.customer_email ? `Email : ${order.customer_email}` : null,
+    `Produit : ${order.product?.name ?? '—'}${order.product?.brand ? ` (${order.product.brand})` : ''}`,
+    `Montant : ${fmt(order.total_amount)} FCFA`,
+    `Ville : ${order.delivery_city}`,
+    `Adresse : ${order.delivery_address}`,
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
 export default function OrdersPage() {
   const [orders,       setOrders]       = useState<any[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selected,     setSelected]     = useState<any>(null);
+  const [copiedId,     setCopiedId]     = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -49,6 +64,13 @@ export default function OrdersPage() {
     await api.patch(`/orders/${id}/status`, { status });
     load();
     setSelected(null);
+  }
+
+  function copyOrder(order: any) {
+    navigator.clipboard.writeText(buildOrderText(order)).then(() => {
+      setCopiedId(order.id);
+      setTimeout(() => setCopiedId(prev => (prev === order.id ? null : prev)), 1800);
+    });
   }
 
   return (
@@ -138,12 +160,21 @@ export default function OrdersPage() {
                       {format(new Date(order.created_at), 'dd MMM yy, HH:mm', { locale: fr })}
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => setSelected(order)}
-                        className="text-xs font-medium text-neo hover:text-neo-dark bg-neo-bg hover:bg-neo-border px-3 py-1.5 rounded-lg transition"
-                      >
-                        Détails
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelected(order)}
+                          className="text-xs font-medium text-neo hover:text-neo-dark bg-neo-bg hover:bg-neo-border px-3 py-1.5 rounded-lg transition"
+                        >
+                          Détails
+                        </button>
+                        <button
+                          onClick={() => copyOrder(order)}
+                          title="Copier les infos (pour un fournisseur)"
+                          className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-neo-dark bg-gray-50 hover:bg-neo-bg px-2.5 py-1.5 rounded-lg transition"
+                        >
+                          {copiedId === order.id ? <Check size={13} className="text-neo" /> : <Copy size={13} />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -167,9 +198,18 @@ export default function OrdersPage() {
                 <h2 className="text-base font-bold text-gray-900">Commande {selected.reference}</h2>
                 <p className="text-xs text-gray-400 mt-0.5">Détail et gestion du statut</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition">
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => copyOrder(selected)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-neo-dark bg-neo-bg hover:bg-neo-border px-3 py-1.5 rounded-lg transition mr-1"
+                >
+                  {copiedId === selected.id ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedId === selected.id ? 'Copié !' : 'Copier pour fournisseur'}
+                </button>
+                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="px-6 py-5">

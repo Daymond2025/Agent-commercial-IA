@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '@/lib/api';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, Bot, MessageSquare, Package, MapPin, Send, Pause, Play, AlertTriangle } from 'lucide-react';
+import { Search, Bot, MessageSquare, Package, MapPin, Send, Pause, Play, AlertTriangle, ChevronLeft } from 'lucide-react';
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
@@ -206,7 +206,7 @@ export default function ConversationsPage() {
     >
 
       {/* ══ PANNEAU GAUCHE — Liste ══════════════════════════════════════════ */}
-      <div className="w-[320px] shrink-0 flex flex-col border-r border-gray-100">
+      <div className={`w-full md:w-[320px] shrink-0 flex-col border-r border-gray-100 ${selected ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Barre de recherche */}
         <div className="px-4 pt-4 pb-3 border-b border-gray-100">
@@ -330,11 +330,11 @@ export default function ConversationsPage() {
       </div>
 
       {/* ══ PANNEAU DROIT — Chat ════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex-col min-w-0 ${selected ? 'flex' : 'hidden md:flex'}`}>
 
         {/* État vide */}
         {!selected && !loadingChat && (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-3">
+          <div className="flex-1 flex-col items-center justify-center text-gray-300 gap-3 hidden md:flex">
             <MessageSquare size={40} />
             <p className="text-sm">Sélectionnez une conversation</p>
           </div>
@@ -351,17 +351,23 @@ export default function ConversationsPage() {
         {selected && !loadingChat && (
           <>
             {/* ─ Header ─────────────────────────────────────────────── */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-neo-bg flex items-center justify-center text-neo font-bold text-sm uppercase">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-white shrink-0">
+              <div className="flex items-center justify-between flex-wrap gap-y-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="md:hidden shrink-0 text-gray-400 hover:text-gray-700 -ml-1 p-1"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <div className="w-11 h-11 rounded-full bg-neo-bg flex items-center justify-center text-neo font-bold text-sm uppercase shrink-0">
                     {initials(selected.customer_name, selected.customer_phone)}
                   </div>
-                  <div>
-                    <h2 className="font-bold text-gray-900 leading-tight">
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-gray-900 leading-tight truncate">
                       {selected.customer_name ?? 'Client inconnu'}
                     </h2>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 truncate">
                       {selected.customer_phone}
                       {selected.agent && (
                         <> · <span className="text-neo-dark font-medium">{selected.agent.name}</span></>
@@ -369,14 +375,14 @@ export default function ConversationsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <StatusBadge status={selected.status} />
                   {/* Toggle IA */}
                   <button
                     onClick={toggleAI}
                     disabled={togglingAI}
                     title={selected.ai_active !== false ? "Mettre l'IA en pause" : "Relancer l'IA"}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
                       selected.ai_active !== false
                         ? 'bg-neo-bg text-neo-dark hover:bg-neo hover:text-white'
                         : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'
@@ -387,7 +393,7 @@ export default function ConversationsPage() {
                       : <><Play size={11} /> IA en pause</>
                     }
                   </button>
-                  <span className="text-xs text-gray-400">{selected.messages_count ?? selected.messages?.length ?? 0} msg</span>
+                  <span className="text-xs text-gray-400 hidden sm:inline">{selected.messages_count ?? selected.messages?.length ?? 0} msg</span>
                 </div>
               </div>
 

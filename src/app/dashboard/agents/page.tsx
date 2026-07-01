@@ -38,6 +38,41 @@ function fileEmoji(mime: string) {
   return '📝';
 }
 
+function compressImage(file: File, maxDim = 800, quality = 0.82): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('canvas indisponible')); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (!blob) { reject(new Error('compression échouée')); return; }
+        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image invalide')); };
+    img.src = url;
+  });
+}
+
+function extractErrorMessage(err: any): string {
+  const data = err?.response?.data;
+  if (data?.errors) return Object.values(data.errors).flat().join(' ');
+  if (data?.message) return data.message;
+  return "Une erreur est survenue lors de l'enregistrement.";
+}
+
 export default function AgentsPage() {
   const [agents,      setAgents]     = useState<any[]>([]);
   const [allProducts, setAll]        = useState<any[]>([]);
@@ -45,6 +80,8 @@ export default function AgentsPage() {
   const [editId,      setEditId]     = useState<number | null>(null);
   const [form,        setForm]       = useState(initForm());
   const [saving,      setSaving]     = useState(false);
+  const [formError,   setFormError]  = useState<string | null>(null);
+  const [avatarBusy,  setAvatarBusy] = useState(false);
   const avatarRef                    = useRef<HTMLInputElement>(null);
 
   // KB state
@@ -84,6 +121,7 @@ export default function AgentsPage() {
     setForm(initForm());
     setEditId(null);
     setModal('create');
+    setFormError(null);
     resetKb();
   }
 
@@ -103,6 +141,7 @@ export default function AgentsPage() {
     });
     setEditId(agent.id);
     setModal('edit');
+    setFormError(null);
     resetKb();
     loadDocs(agent.id);
   }
@@ -111,6 +150,7 @@ export default function AgentsPage() {
     setModal(null);
     setEditId(null);
     setForm(initForm());
+    setFormError(null);
     resetKb();
   }
 
@@ -123,10 +163,21 @@ export default function AgentsPage() {
     }));
   }
 
-  function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    setForm(f => ({ ...f, avatarFile: file, avatarPreview: URL.createObjectURL(file) }));
+    setFormError(null);
+    setAvatarBusy(true);
+    try {
+      // Compresse côté client pour rester sous la limite serveur, même avec des photos de téléphone lourdes
+      const finalFile = file.size > 400 * 1024 ? await compressImage(file) : file;
+      setForm(f => ({ ...f, avatarFile: finalFile, avatarPreview: URL.createObjectURL(finalFile) }));
+    } catch {
+      setForm(f => ({ ...f, avatarFile: file, avatarPreview: URL.createObjectURL(file) }));
+    } finally {
+      setAvatarBusy(false);
+    }
   }
 
   function addFiles(files: FileList | File[]) {
@@ -189,6 +240,7 @@ export default function AgentsPage() {
 
   async function save() {
     setSaving(true);
+    setFormError(null);
     try {
       let agentId: number;
 
@@ -239,6 +291,8 @@ export default function AgentsPage() {
 
       await load();
       closeModal();
+    } catch (err: any) {
+      setFormError(extractErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -355,6 +409,13 @@ export default function AgentsPage() {
             {/* Body scrollable */}
             <div className="overflow-y-auto px-6 py-5 space-y-7">
 
+              {formError && (
+                <div className="flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm border text-red-700 bg-red-50 border-red-200">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  {formError}
+                </div>
+              )}
+
               {/* ── IDENTITÉ ─── */}
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-3">Identité</p>
@@ -362,18 +423,21 @@ export default function AgentsPage() {
                   <button
                     type="button"
                     onClick={() => avatarRef.current?.click()}
-                    className="w-16 h-16 rounded-full overflow-hidden bg-neo-bg flex items-center justify-center border-2 border-dashed border-neo-border hover:border-neo transition shrink-0"
+                    disabled={avatarBusy}
+                    className="w-16 h-16 rounded-full overflow-hidden bg-neo-bg flex items-center justify-center border-2 border-dashed border-neo-border hover:border-neo transition shrink-0 disabled:opacity-60"
                   >
-                    {form.avatarPreview
-                      ? <img src={form.avatarPreview} alt="" className="w-full h-full object-cover" />
-                      : <Upload size={20} className="text-neo" />
+                    {avatarBusy
+                      ? <div className="w-5 h-5 border-2 border-neo border-t-transparent rounded-full animate-spin" />
+                      : form.avatarPreview
+                        ? <img src={form.avatarPreview} alt="" className="w-full h-full object-cover" />
+                        : <Upload size={20} className="text-neo" />
                     }
                   </button>
                   <div>
                     <p className="text-sm font-medium text-gray-700">Photo de profil</p>
-                    <p className="text-xs text-gray-400 mt-0.5">JPG, PNG — max 2 Mo</p>
-                    <button type="button" onClick={() => avatarRef.current?.click()} className="text-xs text-neo hover:underline mt-1">
-                      {form.avatarPreview ? 'Changer' : 'Choisir une image'}
+                    <p className="text-xs text-gray-400 mt-0.5">JPG, PNG — compressée automatiquement</p>
+                    <button type="button" onClick={() => avatarRef.current?.click()} disabled={avatarBusy} className="text-xs text-neo hover:underline mt-1 disabled:opacity-60">
+                      {avatarBusy ? 'Optimisation…' : form.avatarPreview ? 'Changer' : 'Choisir une image'}
                     </button>
                   </div>
                   <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={onAvatar} />
@@ -459,7 +523,7 @@ export default function AgentsPage() {
                       placeholder="Ex: Cet agent se spécialise dans les ordinateurs pour étudiants. Toujours mentionner les facilités de paiement…"
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-gray-50 resize-none"
                     />
-                    <p className="text-xs text-gray-400 mt-1">S'ajoutent au prompt de base Daymond — ne le remplacent pas</p>
+                    <p className="text-xs text-gray-400 mt-1">S'ajoutent au prompt de base WhatsApp Shop — ne le remplacent pas</p>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">URL du site / catalogue</label>
@@ -469,7 +533,7 @@ export default function AgentsPage() {
                         type="url"
                         value={form.website_url}
                         onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-                        placeholder="https://daymondboutique.com/catalogue"
+                        placeholder="https://votresite.com/catalogue"
                         className="w-full border border-gray-200 rounded-xl pl-8 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-gray-50"
                       />
                     </div>
@@ -636,7 +700,7 @@ export default function AgentsPage() {
               <section>
                 <p className="text-[11px] font-bold text-neo uppercase tracking-widest mb-1">Produits assignés</p>
                 <p className="text-xs text-gray-400 mb-3">
-                  Si aucun produit sélectionné, l'agent accède à tout le catalogue Daymond
+                  Si aucun produit sélectionné, l'agent accède à tout le catalogue WhatsApp Shop
                 </p>
                 {allProducts.length === 0 ? (
                   <p className="text-sm text-gray-400 italic">Aucun produit dans le catalogue</p>
@@ -683,7 +747,7 @@ export default function AgentsPage() {
               </button>
               <button
                 onClick={save}
-                disabled={saving}
+                disabled={saving || avatarBusy}
                 className="flex-1 bg-neo hover:bg-neo-dark text-white rounded-xl py-2.5 text-sm font-medium transition disabled:opacity-60"
               >
                 {saving ? 'Enregistrement…' : modal === 'create' ? "Créer l'agent" : 'Enregistrer'}

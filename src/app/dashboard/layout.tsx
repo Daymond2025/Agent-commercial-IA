@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     nativeNotifRef.current?.close();
     nativeNotifRef.current = null;
 
-    document.title = 'Daymond — Commercial IA';
+    document.title = 'WhatsApp Shop — Admin';
   }, []);
 
   // ── Init auth + permission notifs ─────────────────────────────────────────
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             const label = diff === 1
               ? 'Nouvelle commande reçue !'
               : `${diff} nouvelles commandes reçues !`;
-            const notif = new Notification('🛒 Daymond — Commande', {
+            const notif = new Notification('🛒 WhatsApp Shop — Commande', {
               body: label + '\nCliquez pour traiter maintenant.',
               requireInteraction: true, // reste visible jusqu'à action
             });
@@ -144,8 +144,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             let flip = true;
             blinkRef.current = setInterval(() => {
               document.title = flip
-                ? `🔔 (${pendingCountRef.current}) COMMANDE — Daymond`
-                : 'Daymond — Commercial IA';
+                ? `🔔 (${pendingCountRef.current}) COMMANDE — WhatsApp Shop`
+                : 'WhatsApp Shop — Admin';
               flip = !flip;
             }, 900);
           }
@@ -209,10 +209,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div className="flex items-center justify-between h-[70px] px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-neo flex items-center justify-center text-white font-bold text-sm">D</div>
+            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
+              <img src="/logo.png" alt="WhatsApp Shop" className="w-full h-full object-contain p-0.5" />
+            </div>
             <div>
-              <p className="text-[15px] font-bold leading-tight">Daymond</p>
-              <p className="text-[10px] text-neo-light/70 uppercase tracking-widest">Commercial IA</p>
+              <p className="text-[15px] font-bold leading-tight">WhatsApp Shop</p>
+              <p className="text-[10px] text-neo-light/70 uppercase tracking-widest">Espace Admin</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-white/50 hover:text-white">
@@ -286,14 +288,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}
-        <header className="h-[70px] bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0">
+        <header className="h-[70px] bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shrink-0">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-400 hover:text-gray-700">
               <Menu size={22} />
             </button>
             <div>
               <h1 className="text-[17px] font-bold text-gray-900">{pageLabel}</h1>
-              <p className="text-xs text-gray-400 hidden sm:block">Daymond — Agent Commercial IA</p>
+              <p className="text-xs text-gray-400 hidden sm:block">WhatsApp Shop</p>
             </div>
           </div>
 
@@ -303,11 +305,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 href="/dashboard/orders"
                 onClick={clearAllAlerts}
-                className="flex items-center gap-2 bg-red-500 text-white rounded-full px-4 py-1.5 animate-pulse hover:bg-red-600 transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 bg-red-500 text-white rounded-full px-2.5 sm:px-4 py-1.5 animate-pulse hover:bg-red-600 transition-colors shrink-0"
               >
                 <BellRing size={14} />
-                <span className="text-xs font-bold">
-                  {newOrdersCount} commande{newOrdersCount > 1 ? 's' : ''} en attente
+                <span className="text-xs font-bold whitespace-nowrap">
+                  {newOrdersCount} <span className="hidden sm:inline">commande{newOrdersCount > 1 ? 's' : ''} en attente</span>
                 </span>
               </Link>
             )}
@@ -322,7 +324,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-6">
           {children}
         </main>
       </div>

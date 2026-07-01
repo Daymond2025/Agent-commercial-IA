@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --daymond-blue: #1e40af;
-  --daymond-green: #16a34a;
+  --brand-green: #25d366;
 }
 
 body {
   @apply bg-gray-50 text-gray-900;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }

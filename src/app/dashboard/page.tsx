@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 
 const fmt     = (n: number) => new Intl.NumberFormat('fr-CI').format(n);
-const NEO     = 'oklch(.67 .22 144.33)';
-const NEO_DK  = 'oklch(.48 .20 144.33)';
-const NEO_DKR = 'oklch(.36 .18 144.33)';
+const NEO     = '#25d366';
+const NEO_DK  = '#1a9649';
+const NEO_DKR = '#11622f';
 
 const ORDER_COLORS = ['#f97316', NEO, NEO_DK];
 const CONV_COLORS  = [NEO, NEO_DK, '#ef4444'];

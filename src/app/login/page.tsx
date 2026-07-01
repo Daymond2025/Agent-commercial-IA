@@ -34,8 +34,10 @@ export default function LoginPage() {
       {/* Panneau gauche vert */}
       <div className="hidden lg:flex flex-col justify-between w-1/2 bg-neo-darkest text-white p-12">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neo flex items-center justify-center font-bold text-white text-lg">D</div>
-          <span className="text-xl font-bold">Daymond</span>
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0">
+            <img src="/logo.png" alt="WhatsApp Shop" className="w-full h-full object-contain p-1" />
+          </div>
+          <span className="text-xl font-bold">WhatsApp Shop</span>
         </div>
 
         <div>
@@ -61,7 +63,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-neo-light/60 text-sm">© 2026 Daymond — Côte d'Ivoire</p>
+        <p className="text-neo-light/60 text-sm">© 2026 WhatsApp Shop — Côte d'Ivoire</p>
       </div>
 
       {/* Panneau droit */}
@@ -70,8 +72,10 @@ export default function LoginPage() {
 
           {/* Logo mobile */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-xl bg-neo flex items-center justify-center font-bold text-white text-lg">D</div>
-            <span className="text-xl font-bold text-gray-900">Daymond</span>
+            <div className="w-9 h-9 rounded-xl bg-white border border-gray-100 flex items-center justify-center overflow-hidden shrink-0">
+              <img src="/logo.png" alt="WhatsApp Shop" className="w-full h-full object-contain p-1" />
+            </div>
+            <span className="text-xl font-bold text-gray-900">WhatsApp Shop</span>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">

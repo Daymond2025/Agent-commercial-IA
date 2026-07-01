@@ -4,15 +4,19 @@ const config: Config = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
+      },
       colors: {
+        // Vert de marque WhatsApp Shop — #25d366
         neo: {
-          DEFAULT:   'oklch(.67 .22 144.33)',
-          dark:      'oklch(.48 .20 144.33)',
-          darker:    'oklch(.32 .16 144.33)',
-          darkest:   'oklch(.20 .10 144.33)',
-          light:     'oklch(.82 .14 144.33)',
-          bg:        'oklch(.95 .04 144.33)',
-          border:    'oklch(.88 .08 144.33)',
+          DEFAULT:   '#25d366',
+          dark:      '#1a9649',
+          darker:    '#11622f',
+          darkest:   '#0a371a',
+          light:     '#77e7a1',
+          bg:        '#edf8f1',
+          border:    '#c9edd7',
         },
       },
       keyframes: {

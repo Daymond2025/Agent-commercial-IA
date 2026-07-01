@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { Send, X, Bot, Clock, RefreshCw, ChevronLeft, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react';
 
 // ── Config étapes ────────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ export default function LeadsPage() {
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-neo-bg flex items-center justify-center overflow-hidden shrink-0">
                             {conv.agent?.avatar_url
-                              ? <img src={conv.agent.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ? <img src={mediaUrl(conv.agent.avatar_url)} alt="" className="w-full h-full object-cover" />
                               : <Bot size={14} className="text-neo" />
                             }
                           </div>

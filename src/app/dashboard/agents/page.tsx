@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import {
   AlertCircle, Bot, Check, FileText, FolderOpen, Globe,
   Pencil, Plus, Power, Sparkles, Upload, X,
@@ -136,7 +136,7 @@ export default function AgentsPage() {
       instructions:    agent.instructions ?? '',
       website_url:     agent.website_url ?? '',
       avatarFile:      null,
-      avatarPreview:   agent.avatar_url ?? null,
+      avatarPreview:   mediaUrl(agent.avatar_url) ?? null,
       product_ids:     (agent.products ?? []).map((p: any) => p.id),
     });
     setEditId(agent.id);
@@ -327,7 +327,7 @@ export default function AgentsPage() {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-neo-bg flex items-center justify-center shrink-0 border border-neo-border">
                 {agent.avatar_url
-                  ? <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                  ? <img src={mediaUrl(agent.avatar_url)} alt={agent.name} className="w-full h-full object-cover" />
                   : <Bot size={22} className="text-neo" />
                 }
               </div>
@@ -727,7 +727,7 @@ export default function AgentsPage() {
                             <p className="text-xs text-gray-400">{p.brand}</p>
                           </div>
                           {p.image_url && (
-                            <img src={p.image_url} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                            <img src={mediaUrl(p.image_url)} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                           )}
                         </button>
                       );

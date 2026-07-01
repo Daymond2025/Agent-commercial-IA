@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import {
   ShoppingCart, MessageSquare, TrendingUp, Clock,
@@ -259,7 +259,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full overflow-hidden bg-neo-bg flex items-center justify-center shrink-0">
                             {agent.avatar_url
-                              ? <img src={agent.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ? <img src={mediaUrl(agent.avatar_url)} alt="" className="w-full h-full object-cover" />
                               : <Bot size={16} className="text-neo" />
                             }
                           </div>

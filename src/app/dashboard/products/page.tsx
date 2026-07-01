@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { Plus, Pencil, Trash2, Package, X, Upload, Tag, Link2, Check } from 'lucide-react';
 
 const CHAT_APP_URL = process.env.NEXT_PUBLIC_CHAT_APP_URL || '';
@@ -47,7 +47,7 @@ export default function ProductsPage() {
       sale_price: p.sale_price ?? '',
       specs: p.specs ?? EMPTY.specs,
       imageFile: null,
-      imagePreview: p.image_url ?? null,
+      imagePreview: mediaUrl(p.image_url) ?? null,
     });
     setModal('edit');
   }
@@ -134,7 +134,7 @@ export default function ProductsPage() {
             {/* Image ou icône */}
             {p.image_url ? (
               <div className="relative h-40 bg-gray-100 overflow-hidden">
-                <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                <img src={mediaUrl(p.image_url)} alt={p.name} className="w-full h-full object-cover" />
                 <span className={`absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-medium ${
                   p.is_available ? 'bg-neo-bg text-neo-dark' : 'bg-red-100 text-red-600'
                 }`}>

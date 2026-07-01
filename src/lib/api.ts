@@ -1,9 +1,19 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const BACKEND_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+  baseURL: API_BASE,
 });
+
+// Certaines images enregistrées avant correctif backend ont une URL relative
+// (ex: "/storage/…") qui pointe alors vers l'origine du frontend au lieu du backend.
+export function mediaUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  return url.startsWith('/') ? `${BACKEND_ORIGIN}${url}` : url;
+}
 
 api.interceptors.request.use((config) => {
   const token = Cookies.get('token');

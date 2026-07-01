@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Search, SlidersHorizontal, X, Package, Copy, Check } from 'lucide-react';
@@ -137,7 +137,7 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-3">
                         {order.product?.image_url ? (
                           <img
-                            src={order.product.image_url}
+                            src={mediaUrl(order.product.image_url)}
                             alt={order.product.name}
                             className="w-10 h-10 rounded-lg object-cover border border-gray-100 shrink-0"
                           />
@@ -217,7 +217,7 @@ export default function OrdersPage() {
               {selected.product?.image_url && (
                 <div className="flex items-center gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
                   <img
-                    src={selected.product.image_url}
+                    src={mediaUrl(selected.product.image_url)}
                     alt={selected.product.name}
                     className="w-16 h-16 object-cover rounded-xl border border-gray-200"
                   />

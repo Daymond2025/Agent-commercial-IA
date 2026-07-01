@@ -1,10 +1,14 @@
 const CACHE = 'whatsapp-shop-admin-v1';
 
-const PRECACHE = ['/'];
+// "/" redirige côté serveur (Next.js) vers "/dashboard" — Cache.addAll()
+// refuse de mettre en cache une réponse de redirection, d'où le crash si on la liste ici.
+const PRECACHE = ['/login'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(PRECACHE))
+    caches.open(CACHE)
+      .then((c) => c.addAll(PRECACHE))
+      .catch(() => { /* précache best-effort, ne bloque jamais l'installation */ })
   );
   self.skipWaiting();
 });
@@ -35,7 +39,7 @@ self.addEventListener('fetch', (e) => {
           caches.open(CACHE).then((c) => c.put(e.request, clone));
           return res;
         })
-        .catch(() => caches.match(e.request).then((cached) => cached ?? caches.match('/')))
+        .catch(() => caches.match(e.request).then((cached) => cached ?? caches.match('/login')))
     );
     return;
   }

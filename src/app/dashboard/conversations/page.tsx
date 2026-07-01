@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Search, Bot, MessageSquare, Package, MapPin, Send, Pause, Play, AlertTriangle, ChevronLeft } from 'lucide-react';
@@ -436,7 +436,7 @@ export default function ConversationsPage() {
                       {out && (
                         <div className="w-6 h-6 rounded-full bg-neo-bg flex items-center justify-center shrink-0 mb-0.5 overflow-hidden">
                           {selected.agent?.avatar_url
-                            ? <img src={selected.agent.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ? <img src={mediaUrl(selected.agent.avatar_url)} alt="" className="w-full h-full object-cover" />
                             : <Bot size={12} className="text-neo" />
                           }
                         </div>

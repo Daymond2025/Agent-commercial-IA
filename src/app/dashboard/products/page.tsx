@@ -5,16 +5,19 @@ import api, { mediaUrl } from '@/lib/api';
 import { Plus, Pencil, Trash2, Package, X, Upload, Tag, Link2, Check } from 'lucide-react';
 
 const CHAT_APP_URL = process.env.NEXT_PUBLIC_CHAT_APP_URL || '';
+const MAX_IMAGES = 10;
+
+interface GalleryItem { id: string; url: string; file?: File }
 
 const EMPTY: any = {
   name: '', brand: '', description: '', price: '', sale_price: '',
-  currency: 'FCFA', is_available: true, stock: 0, image_url: '',
+  currency: 'FCFA', is_available: true, stock: 0,
   specs: { RAM: '', Stockage: '', Processeur: '', Écran: '' },
-  imageFile: null as File | null,
-  imagePreview: null as string | null,
+  gallery: [] as GalleryItem[],
 };
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-CI').format(n);
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
 export default function ProductsPage() {
   const [products,  setProducts] = useState<any[]>([]);
@@ -22,6 +25,7 @@ export default function ProductsPage() {
   const [form,      setForm]    = useState<any>(EMPTY);
   const [loading,   setLoading] = useState(false);
   const [copiedId,  setCopiedId] = useState<number | null>(null);
+  const [urlInput,  setUrlInput] = useState('');
   const imageRef                 = useRef<HTMLInputElement>(null);
 
   function copyLink(product: any) {
@@ -39,44 +43,67 @@ export default function ProductsPage() {
 
   useEffect(() => { load(); }, []);
 
-  function openCreate() { setForm({ ...EMPTY, specs: { RAM: '', Stockage: '', Processeur: '', Écran: '' } }); setModal('create'); }
+  function openCreate() {
+    setForm({ ...EMPTY, specs: { RAM: '', Stockage: '', Processeur: '', Écran: '' } });
+    setUrlInput('');
+    setModal('create');
+  }
 
   function openEdit(p: any) {
+    const urls: string[] = (p.images?.length ? p.images : (p.image_url ? [p.image_url] : []));
     setForm({
       ...p,
       sale_price: p.sale_price ?? '',
       specs: p.specs ?? EMPTY.specs,
-      imageFile: null,
-      imagePreview: mediaUrl(p.image_url) ?? null,
+      gallery: urls.map((url) => ({ id: url, url })),
     });
+    setUrlInput('');
     setModal('edit');
   }
 
-  function onImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setForm((f: any) => ({ ...f, imageFile: file, imagePreview: URL.createObjectURL(file), image_url: '' }));
+  function onImages(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!files.length) return;
+    setForm((f: any) => ({
+      ...f,
+      gallery: [
+        ...f.gallery,
+        ...files.map((file) => ({ id: uid(), url: URL.createObjectURL(file), file })),
+      ].slice(0, MAX_IMAGES),
+    }));
   }
 
-  function clearImage() {
-    setForm((f: any) => ({ ...f, imageFile: null, imagePreview: null, image_url: '' }));
-    if (imageRef.current) imageRef.current.value = '';
+  function addImageUrl() {
+    const url = urlInput.trim();
+    if (!url) return;
+    setForm((f: any) => ({ ...f, gallery: [...f.gallery, { id: uid(), url }].slice(0, MAX_IMAGES) }));
+    setUrlInput('');
+  }
+
+  function removeImage(id: string) {
+    setForm((f: any) => ({ ...f, gallery: f.gallery.filter((g: GalleryItem) => g.id !== id) }));
   }
 
   async function save() {
     setLoading(true);
     try {
-      if (form.imageFile) {
+      const gallery: GalleryItem[] = form.gallery ?? [];
+      const newFiles      = gallery.filter((g) => g.file).map((g) => g.file as File);
+      const existingUrls  = gallery.filter((g) => !g.file).map((g) => g.url);
+
+      if (newFiles.length > 0) {
         const fd = new FormData();
-        fd.append('name',         form.name);
-        fd.append('brand',        form.brand        || '');
-        fd.append('description',  form.description);
-        fd.append('price',        String(form.price));
-        fd.append('currency',     form.currency     || 'FCFA');
-        fd.append('specs',        JSON.stringify(form.specs));
-        fd.append('is_available', form.is_available ? '1' : '0');
-        fd.append('stock',        String(form.stock));
-        fd.append('image',        form.imageFile);
+        fd.append('name',            form.name);
+        fd.append('brand',           form.brand        || '');
+        fd.append('description',     form.description);
+        fd.append('price',           String(form.price));
+        fd.append('currency',        form.currency     || 'FCFA');
+        fd.append('specs',           JSON.stringify(form.specs));
+        fd.append('is_available',    form.is_available ? '1' : '0');
+        fd.append('stock',           String(form.stock));
+        fd.append('existing_images', JSON.stringify(existingUrls));
+        newFiles.forEach((file) => fd.append('images[]', file));
         if (form.sale_price) fd.append('sale_price', String(form.sale_price));
 
         if (modal === 'create') {
@@ -92,7 +119,7 @@ export default function ProductsPage() {
           specs: form.specs, is_available: form.is_available,
           stock: Number(form.stock),
           sale_price: form.sale_price ? Number(form.sale_price) : null,
-          image_url: form.image_url || null,
+          existing_images: JSON.stringify(existingUrls),
         };
         if (modal === 'create') await api.post('/products', payload);
         else                    await api.put(`/products/${form.id}`, payload);
@@ -135,6 +162,11 @@ export default function ProductsPage() {
             {p.image_url ? (
               <div className="relative h-40 bg-gray-100 overflow-hidden">
                 <img src={mediaUrl(p.image_url)} alt={p.name} className="w-full h-full object-cover" />
+                {p.images?.length > 1 && (
+                  <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                    +{p.images.length - 1}
+                  </span>
+                )}
                 <span className={`absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-medium ${
                   p.is_available ? 'bg-neo-bg text-neo-dark' : 'bg-red-100 text-red-600'
                 }`}>
@@ -237,45 +269,68 @@ export default function ProductsPage() {
 
             <div className="overflow-y-auto px-6 py-5 space-y-4">
 
-              {/* Upload image */}
+              {/* Galerie d'images */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Image du produit</label>
-                {form.imagePreview ? (
-                  <div className="relative rounded-xl overflow-hidden h-40 bg-gray-100">
-                    <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
+                  Images du produit ({form.gallery?.length ?? 0}/{MAX_IMAGES})
+                </label>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {(form.gallery ?? []).map((g: GalleryItem, i: number) => (
+                    <div key={g.id} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        src={g.file ? g.url : mediaUrl(g.url)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      {i === 0 && (
+                        <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md">
+                          Couverture
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(g.id)}
+                        className="absolute top-1 right-1 bg-white/90 hover:bg-white text-gray-700 p-1 rounded-full shadow transition"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {(form.gallery?.length ?? 0) < MAX_IMAGES && (
                     <button
                       type="button"
-                      onClick={clearImage}
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 p-1.5 rounded-full shadow transition"
+                      onClick={() => imageRef.current?.click()}
+                      className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-neo hover:text-neo transition"
                     >
-                      <X size={14} />
+                      <Upload size={18} />
+                      <span className="text-[11px]">Ajouter</span>
                     </button>
-                  </div>
-                ) : (
+                  )}
+                </div>
+                <input ref={imageRef} type="file" accept="image/*" multiple className="hidden" onChange={onImages} />
+                <p className="text-xs text-gray-400 mt-1.5">
+                  JPG, PNG — max 4 Mo par image. La première image sert de couverture.
+                </p>
+
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                    placeholder="ou coller une URL externe"
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-gray-50"
+                  />
                   <button
                     type="button"
-                    onClick={() => imageRef.current?.click()}
-                    className="w-full h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-neo hover:text-neo transition"
+                    onClick={addImageUrl}
+                    className="shrink-0 px-3 py-2 text-xs font-medium bg-neo-bg text-neo-dark rounded-xl hover:bg-neo hover:text-white transition border border-neo-border"
                   >
-                    <Upload size={22} />
-                    <span className="text-sm">Cliquez pour uploader une image</span>
-                    <span className="text-xs">JPG, PNG — max 4 Mo</span>
+                    Ajouter
                   </button>
-                )}
-                <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={onImage} />
-
-                {!form.imageFile && (
-                  <div className="mt-2">
-                    <label className="block text-xs text-gray-400 mb-1">ou URL externe</label>
-                    <input
-                      type="url"
-                      value={form.image_url}
-                      onChange={(e) => setForm({ ...form, image_url: e.target.value, imagePreview: e.target.value || null })}
-                      placeholder="https://..."
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neo bg-gray-50"
-                    />
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* Champs texte */}

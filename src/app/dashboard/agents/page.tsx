@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import api, { mediaUrl } from '@/lib/api';
 import {
   AlertCircle, Bot, Check, Eye, EyeOff, FileText, FolderOpen, Globe,
-  Pencil, Plus, Power, Sparkles, Upload, X,
+  Pencil, Plus, Power, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
 
 type ModalMode = null | 'create' | 'edit';
@@ -90,6 +90,7 @@ export default function AgentsPage() {
   const [pending,     setPending]    = useState<File[]>([]);
   const [uploading,   setUploading]  = useState(false);
   const [training,    setTraining]   = useState(false);
+  const [clearingKb,  setClearingKb] = useState(false);
   const [kbMsg,       setKbMsg]      = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [dragOver,    setDragOver]   = useState(false);
   const [showKbPreview, setShowKbPreview] = useState(false);
@@ -239,6 +240,23 @@ export default function AgentsPage() {
       setKbMsg({ type: 'err', text: err.response?.data?.message ?? 'Pas assez de données pour former l\'agent' });
     } finally {
       setTraining(false);
+    }
+  }
+
+  async function clearKnowledge() {
+    if (!editId) return;
+    if (!confirm('Vider toute la base de connaissances de cet agent ? Les documents importés seront supprimés définitivement.')) return;
+    setClearingKb(true);
+    setKbMsg(null);
+    try {
+      const { data } = await api.delete(`/agents/${editId}/knowledge-base`);
+      setKbMsg({ type: 'ok', text: data.message });
+      setForm((f: any) => ({ ...f, knowledge_base: '' }));
+      await loadDocs(editId);
+    } catch (err: any) {
+      setKbMsg({ type: 'err', text: err.response?.data?.message ?? 'Erreur lors du vidage de la base de connaissances.' });
+    } finally {
+      setClearingKb(false);
     }
   }
 
@@ -550,15 +568,26 @@ export default function AgentsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-[11px] font-bold text-neo uppercase tracking-widest">Base de connaissances</p>
                   {modal === 'edit' && (
-                    <button
-                      type="button"
-                      onClick={trainAgent}
-                      disabled={training}
-                      className="flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition disabled:opacity-60"
-                    >
-                      <Sparkles size={13} />
-                      {training ? 'Formation…' : "Former l'IA"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={clearKnowledge}
+                        disabled={clearingKb || (!form.knowledge_base && kbDocs.length === 0)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition disabled:opacity-40"
+                      >
+                        <Trash2 size={13} />
+                        {clearingKb ? 'Vidage…' : 'Vider'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={trainAgent}
+                        disabled={training}
+                        className="flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition disabled:opacity-60"
+                      >
+                        <Sparkles size={13} />
+                        {training ? 'Formation…' : "Former l'IA"}
+                      </button>
+                    </div>
                   )}
                 </div>
 

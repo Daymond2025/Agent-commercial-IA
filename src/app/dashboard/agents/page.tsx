@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import api, { mediaUrl } from '@/lib/api';
 import {
-  AlertCircle, Bot, Check, FileText, FolderOpen, Globe,
+  AlertCircle, Bot, Check, Eye, EyeOff, FileText, FolderOpen, Globe,
   Pencil, Plus, Power, Sparkles, Upload, X,
 } from 'lucide-react';
 
@@ -24,6 +24,7 @@ const initForm = () => ({
   waba_id: '',
   persona_name: 'Awa',
   instructions: '',
+  knowledge_base: '',
   website_url: '',
   avatarFile: null as File | null,
   avatarPreview: null as string | null,
@@ -91,6 +92,7 @@ export default function AgentsPage() {
   const [training,    setTraining]   = useState(false);
   const [kbMsg,       setKbMsg]      = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [dragOver,    setDragOver]   = useState(false);
+  const [showKbPreview, setShowKbPreview] = useState(false);
   const kbFileRef                    = useRef<HTMLInputElement>(null);
   const kbDirRef                     = useRef<HTMLInputElement>(null);
 
@@ -134,6 +136,7 @@ export default function AgentsPage() {
       waba_id:         agent.waba_id ?? '',
       persona_name:    agent.persona?.name ?? 'Awa',
       instructions:    agent.instructions ?? '',
+      knowledge_base:  agent.knowledge_base ?? '',
       website_url:     agent.website_url ?? '',
       avatarFile:      null,
       avatarPreview:   mediaUrl(agent.avatar_url) ?? null,
@@ -151,6 +154,7 @@ export default function AgentsPage() {
     setEditId(null);
     setForm(initForm());
     setFormError(null);
+    setShowKbPreview(false);
     resetKb();
   }
 
@@ -570,6 +574,28 @@ export default function AgentsPage() {
                       : <AlertCircle size={14} className="shrink-0 mt-0.5" />
                     }
                     {kbMsg.text}
+                  </div>
+                )}
+
+                {modal === 'edit' && (
+                  <div className="mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowKbPreview(v => !v)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-neo transition"
+                    >
+                      {showKbPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {showKbPreview ? 'Masquer' : 'Voir'} le contenu exact utilisé par l'IA
+                      {form.knowledge_base && ` (${form.knowledge_base.length.toLocaleString('fr-FR')} caractères)`}
+                    </button>
+                    {showKbPreview && (
+                      <textarea
+                        readOnly
+                        value={form.knowledge_base || 'Aucune base de connaissances pour le moment.'}
+                        rows={8}
+                        className="w-full mt-2 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-mono text-gray-600 bg-gray-50 resize-y"
+                      />
+                    )}
                   </div>
                 )}
 
